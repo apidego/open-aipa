@@ -15,7 +15,7 @@ web/pages → same-origin API → server/modules → SQLite
 - `server/modules/auth`: setup, sessions, passwords and admin-only user management.
 - `server/modules/conversations`: ownership checks, bounded conversation history, SSE and atomic completed exchanges.
 - `server/modules/agent`: Responses API streaming and a bounded tool loop (5 rounds, 4,096 output tokens per response). `RunAgent` is injected for offline tests.
-- `server/integrations`: typed provider contract, explicit registry and Gmail adapter. Tools use the authenticated user's connection, never a model-provided user ID.
+- `server/integrations`: typed provider contract, activation lifecycle, explicit registry, Gmail adapter and Discord DM channel. Tools use the authenticated user's connection, never a model-provided user ID.
 - `server/modules/jobs`: natural-language planning, schedules, script sandbox, AI task execution, claims, history and notification delivery.
 - `web/pages`: route-specific screens; `web/components`: common UI elements.
 
@@ -29,7 +29,7 @@ The instance-wide OpenAI key, model and system prompt are admin-managed. Convers
 
 ## Storage and migrations
 
-Schema versions are tracked in `migrations`. Version 2 copies legacy AI automations and their run history into `jobs` (kind `task`) and `job_runs`, preserving IDs, prompts, ownership, pause state and next execution time. The legacy tables remain as an archive and are no longer read by the application scheduler. Future schema changes must use new numbered, transactional migrations and preserve existing installations. Do not rely on changing `CREATE TABLE IF NOT EXISTS` to alter deployed tables. Back up before upgrades.
+Schema versions are tracked in `migrations`. Version 3 adds user-owned Discord bindings, expiring hashed pairing codes and message receipts without modifying existing conversations. Version 2 copies legacy AI automations and their run history into `jobs` (kind `task`) and `job_runs`, preserving IDs, prompts, ownership, pause state and next execution time. The legacy tables remain as an archive and are no longer read by the application scheduler. Future schema changes must use new numbered, transactional migrations and preserve existing installations. Do not rely on changing `CREATE TABLE IF NOT EXISTS` to alter deployed tables. Back up before upgrades.
 
 Completed chat exchanges are inserted atomically. A failed response leaves no partial persisted exchange and can be retried; a network interruption may still finish server-side, so reload before resending. Only the newest 60 messages are sent as context. There is no semantic long-term memory yet. Generated text is rendered as Markdown with raw HTML disabled.
 
@@ -55,6 +55,6 @@ Tasks use the regular tool-enabled agent with a structured result (`notify`, `ti
 
 ### Delivery
 
-Notifications belong to the owner and are delivered through an explicit channel boundary. Only `dashboard` is implemented. Discord/Telegram are not connected and are rejected during planning/activation rather than silently falling back to the dashboard. Future external channel integrations need their own issue and explicit action approval design. Read markers are owner-scoped. The dashboard polls every 15 seconds and displays the latest 50 notifications; it is not background browser push.
+Notifications belong to the owner and are delivered through an explicit channel boundary. Only `dashboard` is implemented. Requests for scheduled delivery through Discord/Telegram are rejected during planning/activation rather than silently falling back to the dashboard. Discord currently supports interactive, linked direct-message conversations only; scheduled delivery remains dashboard-only. See [Discord](discord.md) for binding and reply authorization. Additional external actions require their own explicit approval design. Read markers are owner-scoped. The dashboard polls every 15 seconds and displays the latest 50 notifications; it is not background browser push.
 
 Run **one application process/replica** per database. Current bounds: 40 jobs including drafts per user, five planning requests per five minutes per user, minimum one-minute intervals, 16,000-character prompts and bounded scripts/results. The scheduler is not a distributed queue or a guaranteed real-time service. No monthly spending cap or external notification delivery is implemented.

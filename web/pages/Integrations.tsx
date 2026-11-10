@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Check, ExternalLink, Plug, ShieldCheck, Settings } from 'lucide-react';
+import { Check, ExternalLink, Plug, ShieldCheck, Settings, MessageCircle } from 'lucide-react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Loading, PageTitle } from '../components/ui';
 import { DeactivateIntegration } from '../components/DeactivateIntegration';
@@ -47,7 +47,9 @@ export function Integrations({ user }: { user: User }) {
           {items.map((item) => (
             <section className="card integration-card" key={item.id}>
               <div className="card-heading">
-                <span className="gmail-logo">M</span>
+                <span className="gmail-logo">
+                  {item.id === 'discord' ? <MessageCircle size={25} /> : 'M'}
+                </span>
                 <div className="integration-card-actions">
                   <span className={`badge ${item.connected ? 'connected' : ''}`}>
                     {!item.enabled ? (
@@ -105,20 +107,27 @@ export function Integrations({ user }: { user: User }) {
                 <>
                   <div className="permission">
                     <ShieldCheck size={16} />
-                    <span>Lesender Zugriff · Nur dein persönliches Konto</span>
+                    <span>
+                      {item.id === 'discord'
+                        ? 'Kanal · Nur persönliche Direktnachrichten'
+                        : 'Lesender Zugriff · Nur dein persönliches Konto'}
+                    </span>
                   </div>
                   <p className="small">
-                    Dein PA kann bei passenden Aufträgen E-Mails lesen und deren Inhalt an OpenAI
-                    zur Verarbeitung übertragen.
+                    {item.id === 'discord'
+                      ? 'Schreibe deinem PA in Discord. Nachrichten werden mit deinem Konto verarbeitet und im Dashboard gespeichert.'
+                      : 'Dein PA kann bei passenden Aufträgen E-Mails lesen und deren Inhalt an OpenAI zur Verarbeitung übertragen.'}
                   </p>
                   {!item.configured ? (
                     <div className="notice">
                       {user.role === 'admin' ? (
                         <button type="button" onClick={() => setSelected(item)}>
-                          Google OAuth einrichten
+                          {item.id === 'discord'
+                            ? 'Discord-Bot einrichten'
+                            : 'Google OAuth einrichten'}
                         </button>
                       ) : (
-                        'Dein Administrator muss zuerst Google OAuth einrichten.'
+                        'Ein Administrator muss die Integration zuerst konfigurieren.'
                       )}
                     </div>
                   ) : (
@@ -132,6 +141,8 @@ export function Integrations({ user }: { user: User }) {
                           if (item.connected) {
                             await api(`/integrations/${item.id}`, { method: 'DELETE' });
                             await refresh();
+                          } else if (item.id === 'discord') {
+                            setSelected(item);
                           } else {
                             const result = await api(`/integrations/${item.id}/connect`, post({}));
                             window.location.assign(result.url);
@@ -147,13 +158,16 @@ export function Integrations({ user }: { user: User }) {
                         ? 'Bitte warten …'
                         : item.connected
                           ? 'Verbindung entfernen'
-                          : 'Mit Gmail verbinden'}
+                          : item.id === 'discord'
+                            ? 'Discord-Konto verknüpfen'
+                            : 'Mit Gmail verbinden'}
                       <Plug size={15} />
                     </button>
                   )}
                   <small>
-                    Beim Entfernen werden lokale Tokens gelöscht. Den Google-Zugriff kannst du
-                    zusätzlich in deinem Google-Konto widerrufen.
+                    {item.id === 'discord'
+                      ? 'Trennen beendet den Zugriff über Discord. Gespeicherte Konversationen bleiben erhalten.'
+                      : 'Beim Entfernen werden lokale Tokens gelöscht. Den Google-Zugriff kannst du zusätzlich in deinem Google-Konto widerrufen.'}
                   </small>
                   {user.role === 'admin' && (
                     <button

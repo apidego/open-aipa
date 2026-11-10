@@ -1,3 +1,4 @@
+import { conversationLocks } from './conversation-locks.js';
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -7,7 +8,7 @@ import type { ChatMessage, RunAgent } from './agent.js';
 export function conversationRoutes(ctx: Context, runAgent: RunAgent) {
   const { store } = ctx;
   const router = Router();
-  const busy = new Set<string>();
+  const busy = conversationLocks(ctx);
   router.get('/', (req, res) =>
     res.json(
       store.all(

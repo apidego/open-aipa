@@ -1,8 +1,9 @@
 import type { Context } from '../core/context.js';
 import type { Integration } from './types.js';
 import { integrationEnabled } from './state.js';
+import { discord } from './discord.js';
 import { gmail } from './gmail.js';
-export const integrations: Integration[] = [gmail];
+export const integrations: Integration[] = [gmail, discord];
 export function connectedIntegrations(ctx: Context, userId: string) {
   const connected = ctx.store.all<{ provider: string }>(
     'SELECT provider FROM connections WHERE user_id=?',
