@@ -18,6 +18,7 @@ import { Brand, ErrorMessage, Loading } from './components/ui';
 import { Access } from './pages/Access';
 import { Dashboard } from './pages/Dashboard';
 import { Conversations } from './pages/Conversations';
+import { ConversationOverview } from './pages/ConversationOverview';
 import { Integrations } from './pages/Integrations';
 import { Automations } from './pages/Automations';
 import { Settings } from './pages/Settings';
@@ -170,12 +171,12 @@ function App() {
           </div>
         </header>
         <main
-          className={`content ${location.pathname.startsWith('/conversations') ? 'chat-content' : ''}`}
+          className={`content ${location.pathname.startsWith('/conversations/') ? 'chat-content' : ''}`}
         >
           <ErrorMessage error={error} />
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
-            <Route path="/conversations" element={<Conversations />} />
+            <Route path="/conversations" element={<ConversationOverview />} />
             <Route path="/conversations/:id" element={<Conversations />} />
             <Route path="/integrations" element={<Integrations user={user} />} />
             <Route path="/automations" element={<Automations />} />
