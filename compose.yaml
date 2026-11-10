@@ -1,6 +1,6 @@
 services:
   app:
-    image: openaipa:local
+    image: open-aipa:local
     build: .
     restart: unless-stopped
     init: true

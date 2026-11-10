@@ -1,4 +1,4 @@
-# Working on OpenAI PA
+# Working on Open AIPA
 
 ## Session start
 
@@ -10,7 +10,7 @@
 ## Issue → worktree → PR
 
 - Create or identify a GitHub issue for each feature or bug before implementation.
-- Create a separate sibling worktree and branch: `git worktree add ../openaipa-issue-N -b feat/N-short-description origin/main`.
+- Create a separate sibling worktree and branch: `git worktree add ../open-aipa-issue-N -b feat/N-short-description origin/main`.
 - Keep each PR focused. Link its issue with `Closes #N`. Never develop features directly on `main`.
 - Run `npm run check`, meaningful tests (`npm test` for shared behavior), and `npm run build` before delivery. Commit and push completed work, then open a PR. Do not merge without an explicit instruction.
 - After a merge, update the clean primary checkout with `git pull --ff-only` and run cleanup from there. Remote branch auto-deletion is enabled.

@@ -6,8 +6,8 @@ Small, focused contributions are welcome. Open an issue describing the problem a
 2. Create an issue-specific worktree from the latest default branch:
    ```sh
    git fetch origin
-   git worktree add ../openaipa-issue-42 -b feat/42-short-description origin/main
-   cd ../openaipa-issue-42
+   git worktree add ../open-aipa-issue-42 -b feat/42-short-description origin/main
+   cd ../open-aipa-issue-42
    npm ci
    ```
 3. Implement the change. Add tests for meaningful behavior, especially authorization, data isolation and failure paths. Never commit real credentials or mail.

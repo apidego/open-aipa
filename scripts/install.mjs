@@ -9,7 +9,7 @@ if (existsSync('.env')) {
 }
 const rl = createInterface({ input: process.stdin, output: process.stdout });
 console.log(
-  '\nOpenAI PA · Installation\nThe browser wizard creates your admin account and configures OpenAI.\n',
+  '\nOpen AIPA · Installation\nThe browser wizard creates your admin account and configures OpenAI.\n',
 );
 const url =
   (await rl.question('Application URL [http://localhost:3000]: ')).trim() ||

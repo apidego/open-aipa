@@ -1,4 +1,6 @@
-# OpenAI PA
+# Open AIPA
+
+**Open AI Personal Assistant** — `open-aipa`.
 
 An open-source, self-hosted personal assistant powered by your OpenAI API key. Chat with your PA, connect your tools, and schedule recurring tasks from one clean dashboard.
 
@@ -20,8 +22,8 @@ The interface is currently German. Gmail is read-only; this version does not sen
 You need Git and Docker Compose. Run the installer with Node.js 24+, or the Docker alternative below.
 
 ```sh
-git clone https://github.com/apidego/openaipa.git
-cd openaipa
+git clone https://github.com/apidego/open-aipa.git
+cd open-aipa
 node scripts/install.mjs
 docker compose up --build -d
 ```
@@ -63,4 +65,4 @@ npm run build
 
 Start with an issue, implement in a separate worktree, and submit a PR that closes the issue. After merge, remove the worktree and its local/remote branch. The same cleanup check runs at the start of each agent session; see [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
 
-[Architecture](docs/architecture.md) · [Security](SECURITY.md) · [Issues](https://github.com/apidego/openaipa/issues) · [MIT license](LICENSE)
+[Architecture](docs/architecture.md) · [Security](SECURITY.md) · [Issues](https://github.com/apidego/open-aipa/issues) · [MIT license](LICENSE)

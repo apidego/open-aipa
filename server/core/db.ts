@@ -5,6 +5,7 @@ export class Store {
   db: DatabaseSync;
   constructor(dir: string) {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    // Keep the original storage filename so existing installations retain their data.
     this.db = new DatabaseSync(join(dir, 'openaipa.sqlite'));
     this.db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
     this.db.exec(`CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY);

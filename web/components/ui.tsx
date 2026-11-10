@@ -3,7 +3,7 @@ import { LoaderCircle, ArrowUpRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 export function Brand() {
   return (
-    <span className="brand-mark" aria-label="OpenAI PA">
+    <span className="brand-mark" aria-label="Open AIPA">
       <span />
       <span />
     </span>

@@ -9,7 +9,7 @@ try {
 const config = configFromEnv();
 const { app, tick } = createApp(config);
 const server = app.listen(Number(process.env.PORT || 3000), process.env.HOST || '127.0.0.1', () =>
-  console.log(`OpenAI PA ready at ${config.url}`),
+  console.log(`Open AIPA ready at ${config.url}`),
 );
 const timer = setInterval(() => {
   void tick().catch(() => console.error('Scheduler tick failed'));

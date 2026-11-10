@@ -1,6 +1,6 @@
 # Architecture
 
-OpenAI PA is a single-process, self-hosted application. Express serves a React/Vite frontend and JSON/SSE APIs. Node's SQLite driver persists data in WAL mode. No hosted application platform is required.
+Open AIPA is a single-process, self-hosted application. Express serves a React/Vite frontend and JSON/SSE APIs. Node's SQLite driver persists data in WAL mode. No hosted application platform is required.
 
 ```text
 web/pages → same-origin API → server/modules → SQLite

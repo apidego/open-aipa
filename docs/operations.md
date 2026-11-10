@@ -23,13 +23,19 @@ This writes `ALLOW_INSECURE_HTTP=true`, `PUBLISH_ADDRESS=0.0.0.0` and a `PUBLISH
 
 HTTP leaves passwords, cookies, API-key entry and chats unencrypted on the network. Use only a trusted LAN; do not forward the port on your router. For Internet access, use a TLS reverse proxy, set the exact HTTPS `APP_URL` and disable `ALLOW_INSECURE_HTTP`. Origin checks still require the exact configured address; do not alternate between localhost, hostnames and IP addresses when logging in.
 
-On Unraid, keep the repository/Compose configuration in a persistent directory and run the same Compose stack (builds `openaipa:local`). If Node.js is unavailable, run the installer using the Node Docker command in the README with `--allow-insecure-http` appended. The default named volume persists `/app/data` across container restarts and recreation. To use Unraid appdata instead, create `/mnt/user/appdata/openaipa` owned by UID/GID **1000:1000** and set `PA_DATA_VOLUME=/mnt/user/appdata/openaipa` before the first start. Switching storage locations does not migrate an existing database; back up and transfer it deliberately. Keep `.env` with its encryption key in protected persistent storage as well.
+On Unraid, keep the repository/Compose configuration in a persistent directory and run the same Compose stack (builds `open-aipa:local`). If Node.js is unavailable, run the installer using the Node Docker command in the README with `--allow-insecure-http` appended. The default named volume persists `/app/data` across container restarts and recreation. To use Unraid appdata instead, create `/mnt/user/appdata/open-aipa` owned by UID/GID **1000:1000** and set `PA_DATA_VOLUME=/mnt/user/appdata/open-aipa` before the first start. Switching storage locations does not migrate an existing database; back up and transfer it deliberately. Keep `.env` with its encryption key in protected persistent storage as well.
 
 For manual Unraid container configuration after building/loading the image: use bridge networking, map host port 3000 to container port 3000, mount appdata at `/app/data`, and supply `APP_URL`, `ALLOW_INSECURE_HTTP`, `ENCRYPTION_KEY` and `SETUP_TOKEN`. The image already sets `HOST=0.0.0.0` and `DATA_DIR=/app/data`. No privileged mode or Docker socket access is needed. The image is built locally, not published to a registry yet.
 
 Google OAuth does not support a raw LAN IP / HTTP callback for Gmail. Use an HTTPS domain for Gmail, or localhost when testing on the same machine; see [Google redirect URI validation](https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation). The LAN HTTP mode is suitable for testing setup, dashboard, chats and non-Gmail tasks.
 
 Stop with `docker compose stop`, resume with `docker compose up -d`, inspect logs with `docker compose logs --tail=50 app`. Do not use `docker compose down -v` unless you intend to delete the database volume.
+
+## Upgrading from the original repository name
+
+The project is now `open-aipa`, displayed as **Open AIPA** (Open AI Personal Assistant). Update your Git remote to `https://github.com/apidego/open-aipa.git`. Existing local checkout directories do not need to be renamed.
+
+Preserve `.env`, the encryption key and the existing data volume/appdata path. The SQLite filename remains `openaipa.sqlite` for compatibility. If your original Compose project was `openaipa`, keep using `docker compose -p openaipa ...` or set `COMPOSE_PROJECT_NAME=openaipa` in `.env`, even if you rename the checkout directory. This retains the existing `openaipa_pa-data` volume and avoids creating an empty installation. The new image tag is `open-aipa:local`; changing the image tag does not rename or migrate your data. Keep any existing `PA_DATA_VOLUME` binding unchanged.
 
 ## Backups and upgrades
 
