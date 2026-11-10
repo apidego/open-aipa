@@ -74,7 +74,7 @@ Before an upgrade, back up, review release notes, then `git pull --ff-only` on t
 - **Origin rejected:** `APP_URL` must match the exact browser origin. For Vite use `http://localhost:5173`, for the built server normally `http://localhost:3000`.
 - **Chat fails:** verify the saved OpenAI model/key, account permissions, billing and provider availability. Failed exchanges are not saved. Reload after network interruptions before retrying.
 - **Gmail reconnect required:** verify consent/scopes/client configuration. Google testing-mode grants can expire; see [Gmail setup](gmail.md).
-- **Automation late:** keep the server running. Jobs run in sequence; long jobs delay later ones. Inspect the latest execution result.
+- **Task or automation late:** keep the server running. The scheduler checks every 30 seconds and runs jobs sequentially; long jobs delay later ones. Inspect the execution history. See [scheduled jobs](scheduled-jobs.md).
 - **Worktree cleanup skipped:** `.env`, `data/`, dirty files and additional commits are preserved deliberately. Relocate valuable state before retrying.
 
 No telemetry or third-party fonts are loaded by the UI. OpenAI and Google receive requests necessary for configured functionality. OpenAI `store:false` is used for Responses requests; provider account retention policies still apply.

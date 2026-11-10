@@ -375,7 +375,7 @@ hr {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 18px;
   margin-bottom: 22px;
 }
@@ -1278,5 +1278,34 @@ fieldset {
   .repo-link,
   .top-divider {
     display: none;
+  }
+}
+
+.notifications {
+  margin-bottom: 24px;
+  scroll-margin-top: 20px;
+}
+.notification {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.notification.unread {
+  border-left: 3px solid #7c8e6d;
+  padding-left: 16px;
+}
+.notification .card-heading {
+  flex-wrap: wrap;
+}
+.notification p {
+  color: #51594c;
+}
+.notification pre {
+  overflow: auto;
+}
+@media (min-width: 601px) and (max-width: 1150px) {
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
