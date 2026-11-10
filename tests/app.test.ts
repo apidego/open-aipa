@@ -299,3 +299,82 @@ it('preserves users, sessions, conversations and secrets across restart', async 
   expect(instance.ctx.store.get('SELECT token FROM sessions')).toBeTruthy();
   expect(instance.ctx.vault.open(encrypted)).toBe(account.apiKey);
 });
+
+describe('integration settings', () => {
+  it('saves Gmail OAuth independently, encrypts secrets and preserves a blank secret', async () => {
+    const admin = await setup();
+    const originalModel = instance.ctx.store.setting('model');
+    const originalPrompt = instance.ctx.store.setting('systemPrompt');
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'test.apps.googleusercontent.com', clientSecret: 'test-only-secret' })
+      .expect(200);
+    const encrypted = instance.ctx.store.setting('googleClientSecret');
+    expect(encrypted).not.toContain('test-only-secret');
+    expect(instance.ctx.vault.open(encrypted)).toBe('test-only-secret');
+    const result = await admin.get('/api/integrations/gmail/settings').expect(200);
+    expect(result.body).toEqual({
+      clientId: 'test.apps.googleusercontent.com',
+      hasClientSecret: true,
+      callbackUrl: origin + '/api/integrations/gmail/callback',
+    });
+    expect(JSON.stringify(result.body)).not.toContain('test-only-secret');
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'changed.apps.googleusercontent.com', clientSecret: '' })
+      .expect(200);
+    expect(instance.ctx.store.setting('googleClientSecret')).toBe(encrypted);
+    expect(instance.ctx.store.setting('model')).toBe(originalModel);
+    expect(instance.ctx.store.setting('systemPrompt')).toBe(originalPrompt);
+    expect((await admin.get('/api/integrations')).body[0].configured).toBe(true);
+    const general = (await admin.get('/api/settings')).body;
+    expect(general).not.toHaveProperty('googleClientId');
+    expect(general).not.toHaveProperty('hasGoogleSecret');
+    await admin
+      .put('/api/settings')
+      .set('Origin', origin)
+      .send({ model: 'another-model', systemPrompt: 'Another prompt', apiKey: '' })
+      .expect(200);
+    expect(instance.ctx.store.setting('googleClientId')).toBe('changed.apps.googleusercontent.com');
+    expect(instance.ctx.store.setting('googleClientSecret')).toBe(encrypted);
+  });
+  it('enforces admin/origin checks and validates integration settings atomically', async () => {
+    const admin = await setup(),
+      user = await member(admin);
+    await request(instance.app).get('/api/integrations/gmail/settings').expect(401);
+    await user.get('/api/integrations/gmail/settings').expect(403);
+    await user
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'wrong' })
+      .expect(403);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', 'https://other.example')
+      .send({ clientId: 'wrong' })
+      .expect(403);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'wrong', clientSecret: 'x'.repeat(501) })
+      .expect(400);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'wrong', model: 'overwrite' })
+      .expect(400);
+    expect(instance.ctx.store.setting('googleClientId')).toBe('');
+    expect(instance.ctx.store.setting('model')).toBe(account.model);
+  });
+  it('reports environment-configured credentials without exposing the secret', async () => {
+    const admin = await setup();
+    config.googleClientId = 'environment-client';
+    config.googleClientSecret = 'environment-secret';
+    const result = await admin.get('/api/integrations/gmail/settings').expect(200);
+    expect(result.body.clientId).toBe('environment-client');
+    expect(result.body.hasClientSecret).toBe(true);
+    expect(JSON.stringify(result.body)).not.toContain('environment-secret');
+  });
+});

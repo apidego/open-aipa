@@ -2,7 +2,7 @@ import { OAuth2Client, CodeChallengeMethod } from 'google-auth-library';
 import { z } from 'zod';
 import { Router } from 'express';
 import type { Context } from '../core/context.js';
-import { HttpError } from '../core/http.js';
+import { admin, HttpError } from '../core/http.js';
 import { digest, token } from '../core/security.js';
 import type { Integration } from './types.js';
 const scope = 'https://www.googleapis.com/auth/gmail.readonly';
@@ -131,6 +131,27 @@ export const gmail: Integration = {
 export function gmailRoutes(ctx: Context) {
   const { store, vault } = ctx;
   const router = Router();
+  router.get('/settings', admin, (_req, res) =>
+    res.json({
+      clientId: store.setting('googleClientId') || ctx.config.googleClientId,
+      hasClientSecret: !!(store.setting('googleClientSecret') || ctx.config.googleClientSecret),
+      callbackUrl: `${ctx.config.url}/api/integrations/gmail/callback`,
+    }),
+  );
+  router.put('/settings', admin, (req, res) => {
+    const input = z
+      .object({
+        clientId: z.string().trim().max(500),
+        clientSecret: z.string().trim().max(500).optional(),
+      })
+      .strict()
+      .parse(req.body);
+    store.transaction(() => {
+      store.set('googleClientId', input.clientId);
+      if (input.clientSecret) store.set('googleClientSecret', vault.seal(input.clientSecret));
+    });
+    res.json({ ok: true });
+  });
   router.post('/connect', async (req, res) => {
     const client = googleClient(ctx);
     const state = token();

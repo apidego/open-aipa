@@ -42,7 +42,7 @@ For a direct LAN/Unraid test, the installer supports `--allow-insecure-http` wit
 
 ## Gmail
 
-Create a Google OAuth web application, enable the Gmail API, and add the exact redirect URI shown in Settings. Enter the client ID and secret there; each user then connects their own account under Integrations. [Detailed setup and data flow](docs/gmail.md).
+Create a Google OAuth web application, enable the Gmail API, and add the exact redirect URI shown under Integrations → Gmail → gear button. Enter the client ID and secret in that dialog (administrator only); each user then connects their own account under Integrations. [Detailed setup and data flow](docs/gmail.md).
 
 For script automations, AI tasks, schedules and dashboard notifications, see [scheduled jobs](docs/scheduled-jobs.md).
 

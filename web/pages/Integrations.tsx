@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Check, ExternalLink, Plug, ShieldCheck } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Check, ExternalLink, Plug, ShieldCheck, Settings } from 'lucide-react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { IntegrationSettings } from '../components/IntegrationSettings';
 interface Integration {
   id: string;
   name: string;
@@ -14,6 +15,7 @@ export function Integrations({ user }: { user: User }) {
   const [items, setItems] = useState<Integration[]>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<Integration>();
   const [params] = useSearchParams();
   const refresh = () => api<Integration[]>('/integrations').then(setItems);
   useEffect(() => {
@@ -43,16 +45,27 @@ export function Integrations({ user }: { user: User }) {
             <section className="card integration-card" key={item.id}>
               <div className="card-heading">
                 <span className="gmail-logo">M</span>
-                <span className={`badge ${item.connected ? 'connected' : ''}`}>
-                  {item.connected ? (
-                    <>
-                      <Check size={12} />
-                      Verbunden
-                    </>
-                  ) : (
-                    'Nicht verbunden'
-                  )}
-                </span>
+                <div className="integration-card-actions">
+                  <span className={`badge ${item.connected ? 'connected' : ''}`}>
+                    {item.connected ? (
+                      <>
+                        <Check size={12} />
+                        Verbunden
+                      </>
+                    ) : (
+                      'Nicht verbunden'
+                    )}
+                  </span>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label={`${item.name}: Einstellungen`}
+                    title="Einstellungen"
+                    onClick={() => setSelected(item)}
+                  >
+                    <Settings size={18} />
+                  </button>
+                </div>
               </div>
               <h2>{item.name}</h2>
               <p>{item.description}</p>
@@ -67,10 +80,9 @@ export function Integrations({ user }: { user: User }) {
               {!item.configured ? (
                 <div className="notice">
                   {user.role === 'admin' ? (
-                    <Link to="/settings">
-                      Google OAuth in den Einstellungen einrichten
-                      <ExternalLink size={13} />
-                    </Link>
+                    <button type="button" onClick={() => setSelected(item)}>
+                      Google OAuth einrichten
+                    </button>
                   ) : (
                     'Dein Administrator muss zuerst Google OAuth einrichten.'
                   )}
@@ -125,6 +137,14 @@ export function Integrations({ user }: { user: User }) {
             </a>
           </section>
         </div>
+      )}
+      {selected && (
+        <IntegrationSettings
+          integration={selected}
+          user={user}
+          onClose={() => setSelected(undefined)}
+          onSaved={refresh}
+        />
       )}
     </>
   );

@@ -5,9 +5,6 @@ interface SettingsData {
   model: string;
   systemPrompt: string;
   hasApiKey: boolean;
-  googleClientId: string;
-  hasGoogleSecret: boolean;
-  callbackUrl: string;
 }
 export function Settings({ user }: { user: User }) {
   const [data, setData] = useState<SettingsData>();
@@ -20,10 +17,7 @@ export function Settings({ user }: { user: User }) {
   }, []);
   return (
     <>
-      <PageTitle
-        title="Einstellungen"
-        description="KI-Modell, Integrationen und Kontoeinstellungen verwalten."
-      />
+      <PageTitle title="Einstellungen" description="KI-Modell und Kontoeinstellungen verwalten." />
       <ErrorMessage error={error} />
       <div className="settings-grid">
         {user.role === 'admin' &&
@@ -31,7 +25,7 @@ export function Settings({ user }: { user: User }) {
             <Loading />
           ) : (
             <section className="card">
-              <h3>Assistent & Integrationen</h3>
+              <h3>Assistent</h3>
               <p>Diese Einstellungen gelten für alle Nutzer dieser Installation.</p>
               <Form
                 submit={async (form) => {
@@ -65,37 +59,6 @@ export function Settings({ user }: { user: User }) {
                   <small>
                     Beschreibt Verhalten und Aufgaben deines PA. Änderungen gelten ab der nächsten
                     Antwort.
-                  </small>
-                </label>
-                <hr />
-                <h3>Google OAuth</h3>
-                <p>
-                  Erstelle in der Google Cloud Console einen OAuth-Client vom Typ „Webanwendung“ und
-                  aktiviere die Gmail API.
-                </p>
-                <Field
-                  label="Client-ID"
-                  name="googleClientId"
-                  defaultValue={data.googleClientId}
-                  required={false}
-                />
-                <Field
-                  label="Client-Secret"
-                  name="googleClientSecret"
-                  type="password"
-                  required={false}
-                  placeholder={
-                    data.hasGoogleSecret
-                      ? 'Gespeichert · leer lassen zum Beibehalten'
-                      : 'Google Client-Secret'
-                  }
-                />
-                <label className="field">
-                  <span>Autorisierte Weiterleitungs-URI</span>
-                  <input readOnly value={data.callbackUrl} />
-                  <small>
-                    Trage exakt diese Adresse im Google OAuth-Client ein. Nach einem Client-Wechsel
-                    müssen Nutzer Gmail neu verbinden.
                   </small>
                 </label>
               </Form>
