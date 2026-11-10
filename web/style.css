@@ -162,14 +162,10 @@ hr {
 }
 .shell {
   display: flex;
-  max-width: 1800px;
-  min-height: calc(100dvh - 32px);
-  margin: 16px auto;
-  border-radius: 17px;
+  min-height: 100dvh;
+  margin: 0;
   background: #f7f8f5;
-  border: 1px solid #fff;
   overflow: clip;
-  box-shadow: 0 12px 45px #33333308;
 }
 .sidebar {
   width: 228px;
@@ -180,8 +176,8 @@ hr {
   flex-direction: column;
   padding: 27px 18px 18px;
   position: sticky;
-  top: 16px;
-  height: calc(100dvh - 32px);
+  top: 0;
+  height: 100dvh;
   transition: width 0.2s;
 }
 .wordmark {
@@ -1185,12 +1181,6 @@ fieldset {
   bottom: -8px;
   right: -30px;
 }
-@media (min-width: 1800px) {
-  .shell {
-    margin: 25px auto;
-    min-height: calc(100dvh - 50px);
-  }
-}
 @media (max-width: 1150px) {
   .content {
     padding: 28px;
@@ -1228,13 +1218,6 @@ fieldset {
   }
   .settings-grid {
     grid-template-columns: 1fr 1fr;
-  }
-  .shell {
-    margin: 10px;
-  }
-  .sidebar {
-    top: 10px;
-    height: calc(100dvh - 20px);
   }
 }
 @media (max-width: 850px) {
@@ -1307,12 +1290,6 @@ fieldset {
   }
 }
 @media (max-width: 600px) {
-  .shell {
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    min-height: 100dvh;
-  }
   .sidebar {
     height: 100dvh;
     top: 0;
