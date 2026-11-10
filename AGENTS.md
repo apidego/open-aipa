@@ -16,6 +16,14 @@
 - After a merge, update the clean primary checkout with `git pull --ff-only` and run cleanup from there. Remote branch auto-deletion is enabled.
 - Batch independent inspections, prefer targeted `rg` searches, and avoid large logs/diffs. Do not spawn agents for trivial or duplicate work.
 
+## Proof of Done (required for every issue)
+
+- Every issue's PR must end with a `## Proof of Done` section. Also post a completion comment on the PR ending with that section before handing the work off for review. No issue is considered delivered without this evidence.
+- Tie each acceptance criterion to concrete evidence: implemented behavior, relevant files or artifacts, and the actual checks performed with their results. Disclose skipped checks, unverified services and remaining limitations; never claim evidence that was not collected.
+- Include screenshot(s) whenever they meaningfully demonstrate the change, especially visible UI changes. Show the implemented result and relevant states or viewport sizes; use before/after images when comparison helps. Embed the images or link to reviewer-accessible artifacts, with short captions. A local-only file path is not sufficient.
+- Keep screenshots free of credentials, personal data and unrelated application/browser content. Screenshots complement behavioral tests; they do not replace them.
+- When screenshots add no useful evidence (for example, a documentation-only change), briefly explain why in Proof of Done. Keep evidence current after revisions and keep this section last in both the PR description and completion comment.
+
 ## Architecture and safety
 
 - Read `docs/architecture.md` before structural changes. Server modules own authentication/authorization; UI restrictions never substitute for server checks.
