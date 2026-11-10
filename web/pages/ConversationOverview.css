@@ -1,0 +1,34 @@
+.conversation-overview-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.conversation-overview-list li + li {
+  border-top: 1px solid var(--line);
+}
+.conversation-overview-list .list-row {
+  padding: 18px 12px;
+  border-radius: 8px;
+  border-bottom: 0;
+}
+.conversation-overview-list .list-row:hover {
+  background: #f7f8f5;
+}
+.conversation-overview-list .list-row > div {
+  min-width: 0;
+}
+.conversation-overview-list .list-row strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.conversation-overview-list .list-row small {
+  margin-top: 5px;
+}
+.conversation-overview > .empty {
+  min-height: 280px;
+}
+@media (max-width: 600px) {
+  .conversation-overview-list .list-row {
+    padding: 16px 0;
+  }
+}
