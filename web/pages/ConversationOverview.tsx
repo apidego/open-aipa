@@ -45,9 +45,8 @@ export function ConversationOverview() {
   return (
     <>
       <PageTitle
-        eyebrow="DEINE GESPRÄCHE"
         title="Konversationen"
-        description="Gedanken sortieren, Ideen entwickeln und gemeinsam weiterkommen."
+        description="Gespeicherte Gespräche öffnen oder eine neue Konversation starten."
         action={
           <button className="primary" disabled={creating} onClick={create}>
             {creating ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}
@@ -87,7 +86,7 @@ export function ConversationOverview() {
             ))}
           </ul>
         ) : (
-          <Empty title="Hier beginnt dein nächster Gedanke.">
+          <Empty title="Keine Konversationen vorhanden.">
             Starte eine neue Konversation. Deine Gespräche findest du anschließend hier wieder.
           </Empty>
         )}

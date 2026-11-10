@@ -26,9 +26,8 @@ export function Integrations({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="DEINE VERBINDUNGEN"
-        title="Alles arbeitet zusammen."
-        description="Verbinde die Werkzeuge, die du täglich nutzt, mit deinem persönlichen Assistenten."
+        title="Integrationen"
+        description="Verbundene Dienste und Zugriffsberechtigungen verwalten."
       />
       <ErrorMessage error={error} />
       {params.has('connected') && (
@@ -114,7 +113,7 @@ export function Integrations({ user }: { user: User }) {
           ))}
           <section className="integration-placeholder">
             <Plug size={25} strokeWidth={1.3} />
-            <h3>Platz für mehr.</h3>
+            <h3>Weitere Integrationen</h3>
             <p>Weitere Dienste lassen sich über das modulare Integrationssystem ergänzen.</p>
             <a
               href="https://github.com/apidego/open-aipa/issues/new?template=feature.yml"

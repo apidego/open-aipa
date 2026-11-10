@@ -21,9 +21,8 @@ export function Settings({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="DEIN WORKSPACE"
-        title="So, wie du arbeitest."
-        description="Gib deinem PA eine Richtung und verwalte deine Verbindungen."
+        title="Einstellungen"
+        description="KI-Modell, Integrationen und Kontoeinstellungen verwalten."
       />
       <ErrorMessage error={error} />
       <div className="settings-grid">
@@ -124,7 +123,7 @@ export function Settings({ user }: { user: User }) {
             </section>
           ))}
         <section className="card account-card">
-          <h3>Dein Account</h3>
+          <h3>Konto</h3>
           <div className="account-avatar">{user.name.slice(0, 1).toUpperCase()}</div>
           <strong>{user.name}</strong>
           <p>{user.email}</p>

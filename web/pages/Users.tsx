@@ -13,8 +13,7 @@ export function Users({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="GEMEINSAM ARBEITEN"
-        title="Dein Team. Dein Workspace."
+        title="Nutzer"
         description="Nur Administratoren können neue Nutzer hinzufügen. Gespräche und Gmail-Konten bleiben persönlich."
       />
       <ErrorMessage error={error} />
