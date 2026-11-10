@@ -20,6 +20,8 @@ interface Job {
   script: string | null;
   schedule: Schedule;
   channel: string;
+  discord_binding_id?: string | null;
+  discord_recipient?: string | null;
   allow_ai: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   next_run: number | null;
@@ -30,6 +32,8 @@ interface Run {
   status: string;
   result: string | null;
   notified: number;
+  delivery_status?: string | null;
+  delivery_error?: string | null;
   created_at: number;
 }
 const statusLabels = {
@@ -131,6 +135,14 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
   async function mutate(job: Job, action: 'active' | 'paused' | 'delete') {
     if (action === 'delete' && !confirm('Diesen Eintrag und seinen Ausführungsverlauf löschen?'))
       return;
+    if (
+      action === 'active' &&
+      job.channel === 'discord' &&
+      !confirm(
+        `Discord-Zustellung für diese Aufgabe an dein verknüpftes Konto ${job.discord_recipient || '(nicht verbunden)'} freigeben? Nur bei erfüllter Bedingung wird eine Direktnachricht gesendet. Kein Versand an andere Empfänger.`,
+      )
+    )
+      return;
     setError('');
     setMutating(true);
     try {
@@ -138,7 +150,15 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
         `${path}/${job.id}`,
         action === 'delete'
           ? { method: 'DELETE' }
-          : { method: 'PATCH', body: JSON.stringify({ status: action }) },
+          : {
+              method: 'PATCH',
+              body: JSON.stringify({
+                status: action,
+                ...(job.channel === 'discord'
+                  ? { approveDiscord: true, discordBindingId: job.discord_binding_id }
+                  : {}),
+              }),
+            },
       );
       if (action === 'delete') setSelected(undefined);
       setItems(await api<Job[]>(path));
@@ -219,7 +239,18 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                 </div>
                 <div>
                   <dt>Benachrichtigungen</dt>
-                  <dd>Dashboard · nur bei erfüllter Bedingung</dd>
+                  <dd>
+                    {job.channel === 'discord'
+                      ? 'Discord · Direktnachricht an dein verknüpftes Konto'
+                      : 'Dashboard'}{' '}
+                    · nur bei erfüllter Bedingung
+                    {job.channel === 'discord' && (
+                      <small>
+                        Empfänger: {job.discord_recipient || 'Nicht verbunden'} · Freigabe beim
+                        Aktivieren
+                      </small>
+                    )}
+                  </dd>
                 </div>
                 <div>
                   <dt>KI bei Ausführung</dt>
@@ -304,11 +335,19 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                       </div>
                       {run.status === 'completed' && (
                         <small>
-                          {run.notified
-                            ? 'Benachrichtigung erstellt'
-                            : 'Ohne Benachrichtigung beendet'}
+                          {run.delivery_status
+                            ? {
+                                pending: 'Discord: Zustellung ausstehend',
+                                sending: 'Discord: Wird gesendet',
+                                sent: 'Discord: Gesendet',
+                                failed: 'Discord: Zustellung fehlgeschlagen',
+                              }[run.delivery_status] || run.delivery_status
+                            : run.notified
+                              ? 'Benachrichtigung erstellt'
+                              : 'Ohne Benachrichtigung beendet'}
                         </small>
                       )}
+                      {run.delivery_error && <p role="status">{run.delivery_error}</p>}
                       {run.result && <Markdown>{run.result}</Markdown>}
                     </article>
                   ))
@@ -332,7 +371,7 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                   placeholder={
                     scriptMode
                       ? 'Prüfe jeden Werktag um 9 Uhr, ob neue Mails von example@example.com da sind. Benachrichtige mich nur bei neuen Treffern.'
-                      : 'Prüfe morgen um 10 Uhr mein Gmail-Postfach. Falls eine Mail von XY einen Treffpunkt nennt, gib mir Bescheid. Ansonsten sag nichts.'
+                      : 'Prüfe morgen um 10 Uhr mein Gmail-Postfach. Falls eine Mail von XY einen Treffpunkt nennt, gib mir über Discord Bescheid. Ansonsten sag nichts.'
                   }
                 />
               </label>
@@ -365,8 +404,9 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                 {scriptMode
                   ? 'Das Skript nutzt deine verbundenen Integrationen. Ohne diese Freigabe sind KI-Aufrufe bei der Ausführung gesperrt.'
                   : 'Bei jeder Ausführung wird das konfigurierte KI-Modell verwendet.'}{' '}
-                Benachrichtigungen erscheinen im Dashboard. Weitere Kanäle sind noch nicht
-                verfügbar.
+                Standardmäßig erscheinen Benachrichtigungen im Dashboard. Für eine Direktnachricht
+                schreibe „über Discord“ in den Auftrag und verknüpfe dein Konto unter Integrationen.
+                Der Entwurf zeigt den Kanal vor der Freigabe.
               </p>
               {question && (
                 <div className="notice" role="status">

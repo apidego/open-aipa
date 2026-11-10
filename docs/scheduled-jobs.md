@@ -36,11 +36,17 @@ return {
 
 No shell, Node modules, environment variables, filesystem or arbitrary HTTP access is available. Limits: 16 MiB guest heap, approximately one second CPU, 120 seconds total, 20 capability calls and two AI calls per run. Script source is capped at 30,000 characters; state and result message at 16,000 each. Gmail requests retain their existing timeout and readonly scope. Failed calls/timeouts appear in history; they do not trigger an automatic AI repair or a hidden AI fallback.
 
-## Notifications and future channels
+## Notification channels
 
 Dashboard notifications are owner-scoped and durable. Marking an item read affects only that account. “Ansonsten sag nichts” suppresses notification delivery, not the execution record. Failures are visible in history. The dashboard refreshes notifications every 15 seconds while open; there is no browser push when the page is closed.
 
-Telegram and Discord are not implemented yet. A request such as “nur über Discord” must be clarified/rejected while that channel is unavailable, never rerouted silently. A separate delivery boundary stores the selected channel so future integrations can be added without changing scheduling or execution.
+Discord is available when the integration is enabled, a bot is configured and the owner has linked their Discord account. Request it explicitly (for example “gib mir nur über Discord Bescheid”). The planner selects one channel; the draft shows it and the recipient. Activation/resume of a Discord job requires an explicit, origin-checked confirmation of the exact current binding. This authorizes only conditional results of this job to the owner's linked DM, not arbitrary destinations or a general-purpose write tool. A replaced binding requires pausing and approving again. The same delivery boundary supports scripts and AI tasks.
+
+Execution commits a durable outbox entry with the run result. The Discord runtime checks the outbox every five seconds, verifies ownership, activation, configuration generation and binding before each chunk, and marks pending/sending/sent/failed. `notify=false` creates no delivery. Discord-only results are visible in the task history but do not create dashboard notifications. Deleted jobs cascade queued deliveries. A disabled/disconnected/replaced integration fails queued deliveries without fallback; an offline bot leaves them pending for up to 24 hours.
+
+Claim-before-send prevents automatic replay. Uncertain/partial sends and sends interrupted by restart fail visibly and are not retried automatically; network requests already dispatched cannot be recalled. Discord SDK server-error retries are disabled. Exactly-once external delivery cannot be guaranteed. Run only one application process. No real Discord delivery is exercised by the automated tests.
+
+Telegram, multiple destinations and arbitrary Discord users/server channels remain unsupported and must produce clarification, never silent fallback.
 
 ## Upgrade
 

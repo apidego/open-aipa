@@ -7,7 +7,8 @@ import { HttpError } from '../../core/http.js';
 import { nextRun, validTimezone } from './schedule.js';
 import { validateScript } from './scripts.js';
 import type { Job, JobKind, PlanJob } from './types.js';
-function view(job: Job) {
+import { availableChannels, discordLink } from './notifications.js';
+function view(ctx: Context, job: Job) {
   const schedule = JSON.parse(job.schedule);
   const upcoming: number[] = [];
   try {
@@ -19,7 +20,22 @@ function view(job: Job) {
   } catch {
     /* Expired drafts remain visible for deletion/recreation. */
   }
-  return { ...job, schedule, upcoming, script_state: undefined };
+  const link = discordLink(ctx, job.user_id);
+  const target =
+    job.status === 'active' || job.status === 'completed'
+      ? ctx.store.get<{ link_id: string; discord_user_id: string }>(
+          'SELECT * FROM job_discord_targets WHERE job_id=?',
+          job.id,
+        )
+      : undefined;
+  return {
+    ...job,
+    schedule,
+    upcoming,
+    script_state: undefined,
+    discord_binding_id: target?.link_id || link?.id || null,
+    discord_recipient: target?.discord_user_id || link?.discord_user_id || null,
+  };
 }
 export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
   const { store } = ctx;
@@ -32,7 +48,7 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
           req.user!.id,
           kind,
         )
-        .map(view),
+        .map((job) => view(ctx, job)),
     ),
   );
   router.post(
@@ -77,7 +93,7 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
       const name = z.string().trim().min(1).max(100).parse(plan.name);
       const description = z.string().trim().min(1).max(2000).parse(plan.description);
       const prompt = z.string().trim().min(1).max(16000).parse(plan.prompt);
-      if (plan.channel !== 'dashboard')
+      if (!availableChannels(ctx, req.user!.id).includes(plan.channel))
         throw new HttpError(
           400,
           'Der gewünschte Benachrichtigungskanal ist noch nicht verbunden. Eine Umleitung ins Dashboard erfolgt nicht.',
@@ -113,7 +129,10 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
         );
       });
       res.status(201).json({
-        job: view(store.get<Job>('SELECT * FROM jobs WHERE id=? AND user_id=?', id, req.user!.id)!),
+        job: view(
+          ctx,
+          store.get<Job>('SELECT * FROM jobs WHERE id=? AND user_id=?', id, req.user!.id)!,
+        ),
       });
     },
   );
@@ -132,13 +151,19 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
   router.get('/:id/runs', (req, res) =>
     res.json(
       store.all(
-        'SELECT * FROM job_runs WHERE job_id=? ORDER BY created_at DESC LIMIT 20',
+        'SELECT r.*,d.status delivery_status,d.error delivery_error FROM job_runs r LEFT JOIN discord_deliveries d ON d.run_id=r.id WHERE r.job_id=? ORDER BY r.created_at DESC LIMIT 20',
         String(req.params.id),
       ),
     ),
   );
   router.patch('/:id', (req, res) => {
-    const { status } = z.object({ status: z.enum(['active', 'paused']) }).parse(req.body);
+    const { status, discordBindingId, approveDiscord } = z
+      .object({
+        status: z.enum(['active', 'paused']),
+        discordBindingId: z.string().optional(),
+        approveDiscord: z.boolean().optional(),
+      })
+      .parse(req.body);
     const job = store.get<Job>(
       'SELECT * FROM jobs WHERE id=? AND user_id=?',
       String(req.params.id),
@@ -154,6 +179,22 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
       throw new HttpError(409, 'Eine Ausführung läuft noch.');
     const next =
       status === 'active' ? nextRun(JSON.parse(job.schedule), Date.now(), true) : job.next_run;
+    if (status === 'active' && job.channel === 'discord') {
+      const link = discordLink(ctx, req.user!.id);
+      if (!link) throw new HttpError(409, 'Bitte Discord aktivieren und dein Konto verknüpfen.');
+      if (!approveDiscord || discordBindingId !== link.id)
+        throw new HttpError(
+          409,
+          'Bitte den Discord-Empfänger prüfen und die Zustellung ausdrücklich freigeben.',
+        );
+      store.run(
+        'INSERT INTO job_discord_targets(job_id,link_id,discord_user_id,channel_id) VALUES(?,?,?,?) ON CONFLICT(job_id) DO UPDATE SET link_id=excluded.link_id,discord_user_id=excluded.discord_user_id,channel_id=excluded.channel_id',
+        job.id,
+        link.id,
+        link.discord_user_id,
+        link.channel_id,
+      );
+    }
     store.run(
       'UPDATE jobs SET status=?,next_run=? WHERE id=? AND user_id=?',
       status,
