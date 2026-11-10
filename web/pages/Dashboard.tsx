@@ -9,7 +9,7 @@ import {
   Clock3,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, post, date, type User, type Conversation } from '../api';
+import { api, post, date, type Conversation } from '../api';
 import { Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
 import { Notifications } from '../components/Notifications';
 interface DashboardData {
@@ -28,7 +28,7 @@ interface DashboardData {
     kind: string;
   }[];
 }
-export function Dashboard({ user }: { user: User }) {
+export function Dashboard() {
   const [data, setData] = useState<DashboardData>();
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -49,9 +49,8 @@ export function Dashboard({ user }: { user: User }) {
   return (
     <>
       <PageTitle
-        eyebrow="DEIN ÜBERBLICK"
-        title={`Hallo, ${user.name.split(' ')[0]}.`}
-        description="Mehr Raum für das, was dir wichtig ist."
+        title="Dashboard"
+        description="Konversationen, Integrationen und geplante Ausführungen im Überblick."
         action={
           <button className="primary" onClick={() => start()}>
             Konversation starten
@@ -66,21 +65,21 @@ export function Dashboard({ user }: { user: User }) {
             label: 'Konversationen',
             value: data.conversations,
             icon: MessageSquare,
-            text: 'Gedanken werden zu nächsten Schritten',
+            text: 'Gespeicherte Gespräche',
             to: '/conversations',
           },
           {
             label: 'Verbundene Integrationen',
             value: data.integrations,
             icon: Plug,
-            text: 'Deine Werkzeuge, ein Assistent',
+            text: 'Verbundene Dienste',
             to: '/integrations',
           },
           {
             label: 'Automatisierungen',
             value: data.automations,
             icon: Workflow,
-            text: 'Wiederkehrende Aufgaben im Griff',
+            text: 'Zeitgesteuerte Skripte',
             to: '/automations',
           },
           {
@@ -104,15 +103,8 @@ export function Dashboard({ user }: { user: User }) {
       <Notifications />
       <div className="dashboard-grid">
         <section className="card assistant-card">
-          <span className="badge">
-            <span className="status-dot" /> DEIN PA IST BEREIT
-          </span>
-          <h2>
-            Was kann ich dir
-            <br />
-            heute abnehmen?
-          </h2>
-          <p>Plane deinen Tag, bring Ordnung in dein Postfach oder entwickle deine nächste Idee.</p>
+          <h2>Neue Konversation</h2>
+          <p>Stelle eine Frage oder beschreibe einen Auftrag.</p>
           <div className="prompt-entry">
             <input
               aria-label="Auftrag an deinen PA"
@@ -144,7 +136,7 @@ export function Dashboard({ user }: { user: User }) {
         </section>
         <section className="card">
           <div className="card-heading">
-            <h3>Zuletzt besprochen</h3>
+            <h3>Letzte Konversationen</h3>
             <Link to="/conversations" aria-label="Alle Konversationen">
               <ArrowUpRight size={19} />
             </Link>
@@ -165,9 +157,7 @@ export function Dashboard({ user }: { user: User }) {
               ))}
             </div>
           ) : (
-            <Empty title="Hier beginnt dein Verlauf.">
-              Starte ein Gespräch. Dein PA behält den Faden innerhalb jeder Konversation.
-            </Empty>
+            <Empty title="Keine Konversationen vorhanden.">Neue Gespräche erscheinen hier.</Empty>
           )}
         </section>
         <section className="card">
@@ -193,16 +183,16 @@ export function Dashboard({ user }: { user: User }) {
               </Link>
             ))
           ) : (
-            <Empty title="Dein Alltag darf leichter werden.">
-              Erstelle einen wiederkehrenden Auftrag unter Automatisierungen.
+            <Empty title="Noch keine Ausführungen.">
+              Ergebnisse von Aufgaben und Automatisierungen erscheinen hier.
             </Empty>
           )}
         </section>
         <section className="card integration-teaser">
           <div className="gmail-logo">M</div>
           <div>
-            <h3>Dein Postfach. Aufgeräumte Gedanken.</h3>
-            <p>Verbinde Gmail und lass deinen PA wichtige E-Mails finden und zusammenfassen.</p>
+            <h3>Gmail verbinden</h3>
+            <p>Verbinde Gmail, um E-Mails über die Integration zu suchen und zu lesen.</p>
             <Link className="text-link" to="/integrations">
               Integrationen entdecken
               <ArrowRight size={15} />

@@ -177,7 +177,7 @@ function App() {
         >
           <ErrorMessage error={error} />
           <Routes>
-            <Route path="/" element={<Dashboard user={user} />} />
+            <Route path="/" element={<Dashboard />} />
             <Route path="/conversations" element={<ConversationOverview />} />
             <Route path="/conversations/:id" element={<Conversations />} />
             <Route path="/integrations" element={<Integrations user={user} />} />

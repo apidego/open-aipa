@@ -15,21 +15,11 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
         <div className="wordmark">
           <Brand />
           Open AIPA
-          <span className={setup ? 'badge' : 'access-context'}>
-            {setup ? 'OPEN SOURCE' : 'DEIN ARBEITSBEREICH'}
-          </span>
+          <span className="access-context">{setup ? 'EINRICHTUNG' : 'ANMELDUNG'}</span>
         </div>
         <div>
-          <span className="eyebrow">VON DER IDEE ZUR LÖSUNG. MITEINANDER.</span>
-          <h1>
-            Ein klarer Kopf.
-            <br />
-            Ein Assistent für dich.
-          </h1>
-          <p>
-            Deine Gespräche, deine Werkzeuge und deine Aufgaben an einem Ort – übersichtlich und
-            unter deiner Kontrolle.
-          </p>
+          <h1>Open AIPA</h1>
+          <p>Konversationen, Integrationen, Automatisierungen und Aufgaben verwalten.</p>
           {setup ? (
             <div className="story-orbit">
               <div className="orbit-inner">
@@ -42,10 +32,10 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
           ) : (
             <ul className="access-benefits">
               {[
-                'Persönlicher KI-Assistent',
-                'Tools & Automatisierungen',
-                'Gespräche & Integrationen',
-                'Auf deinem Server. Unter deiner Kontrolle.',
+                'Konversationen mit KI',
+                'Verbundene Integrationen',
+                'Skripte und geplante Aufgaben',
+                'Ergebnisse und Benachrichtigungen',
               ].map((benefit) => (
                 <li key={benefit}>
                   <Check size={23} strokeWidth={2.5} aria-hidden="true" />
@@ -55,15 +45,13 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
             </ul>
           )}
         </div>
-        {setup && <small>Self-hosted · Open Source · Powered by OpenAI</small>}
       </section>
       <section className="access-form">
         <div className="access-card">
-          {setup && <span className="eyebrow">WILLKOMMEN AN BORD</span>}
-          <h2>{setup ? 'Mach ihn zu deinem PA.' : 'Willkommen zurück.'}</h2>
+          <h2>{setup ? 'Einrichtung' : 'Anmelden'}</h2>
           <p>
             {setup
-              ? 'In drei Schritten ist dein persönlicher Assistent startklar.'
+              ? 'Installation verbinden, Administratorkonto erstellen und OpenAI konfigurieren.'
               : 'Melde dich an, um zu deinem Arbeitsbereich zu gelangen.'}
           </p>
           {setup ? (
@@ -104,7 +92,7 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
                 {step === 0 && (
                   <div className="wizard-step">
                     <ShieldCheck size={24} />
-                    <h3>Diese Installation gehört dir.</h3>
+                    <h3>Installation verbinden</h3>
                     <p>
                       Gib den Einrichtungsschlüssel aus dem Installationsprogramm ein. Er schützt
                       die erstmalige Einrichtung.
@@ -122,7 +110,7 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
                 {step === 1 && (
                   <div className="wizard-step">
                     <UserRound size={24} />
-                    <h3>Dein Administrator-Account</h3>
+                    <h3>Administratorkonto</h3>
                     <Field label="Name" name="name" defaultValue={values.name} />
                     <Field label="E-Mail" name="email" type="email" defaultValue={values.email} />
                     <Field

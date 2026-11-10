@@ -146,9 +146,8 @@ export function Conversations() {
         Alle Konversationen
       </Link>
       <PageTitle
-        eyebrow="DEIN PERSÖNLICHER ASSISTENT"
-        title={items.find((item) => item.id === id)?.title || 'Dein Gespräch'}
-        description="Ein guter Ort für Fragen, Ideen und den nächsten Schritt."
+        title={items.find((item) => item.id === id)?.title || 'Konversation'}
+        description="Nachrichten und Antworten in dieser Konversation."
         action={
           <button className="primary" onClick={create} disabled={creating || busy}>
             {creating ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}
@@ -201,8 +200,8 @@ export function Conversations() {
             </div>
           ) : (
             !messages.length && (
-              <Empty title="Womit fangen wir an?">
-                Stell eine Frage oder gib deinem PA einen konkreten Auftrag.
+              <Empty title="Noch keine Nachrichten.">
+                Schreibe eine Nachricht, um die Konversation zu beginnen.
               </Empty>
             )
           )}

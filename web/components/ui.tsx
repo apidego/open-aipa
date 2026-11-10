@@ -10,12 +10,10 @@ export function Brand() {
   );
 }
 export function PageTitle({
-  eyebrow = 'DEIN PERSÖNLICHER ASSISTENT',
   title,
   description,
   action,
 }: {
-  eyebrow?: string;
   title: string;
   description: string;
   action?: ReactNode;
@@ -23,7 +21,6 @@ export function PageTitle({
   return (
     <header className="page-heading">
       <div>
-        <div className="eyebrow">{eyebrow}</div>
         <h1>{title}</h1>
         <p>{description}</p>
       </div>

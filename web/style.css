@@ -358,13 +358,6 @@ hr {
   gap: 20px;
   margin-bottom: 31px;
 }
-.eyebrow {
-  font-size: 9px;
-  letter-spacing: 1.6px;
-  font-weight: 550;
-  color: #9a9f94;
-  margin-bottom: 12px;
-}
 .page-heading p {
   font-size: 12px;
   margin: 12px 0 0;
@@ -433,18 +426,6 @@ hr {
   padding: 5px 8px;
   border-radius: 5px;
   white-space: nowrap;
-}
-.assistant-card > .badge {
-  font-size: 8px;
-  letter-spacing: 0.8px;
-  border: 1px solid #dce3d2;
-  background: #f7faf2;
-}
-.status-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #6c8b49;
 }
 .assistant-card h2 {
   font-size: 34px;
@@ -904,9 +885,6 @@ fieldset {
 }
 .access-card > p {
   font-size: 12px;
-}
-.access-card .eyebrow {
-  color: #9ba68f;
 }
 .access-footer {
   display: block;
