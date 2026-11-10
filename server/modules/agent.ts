@@ -28,6 +28,7 @@ export function agentRunner(ctx: Context): RunAgent {
     const available = connectedIntegrations(ctx, userId);
     const input: ResponseInput = [...messages];
     for (let round = 0; round < 5; round++) {
+      options?.signal?.throwIfAborted();
       const stream = await client.responses.create(
         {
           model: ctx.store.setting('model'),
@@ -76,6 +77,7 @@ export function agentRunner(ctx: Context): RunAgent {
         ),
       );
       for (const call of calls) {
+        options?.signal?.throwIfAborted();
         const provider = available.find((i) => i.tools.some((t) => t.name === call.name));
         let result: unknown = { error: 'Tool unavailable' };
         if (!provider && options?.task) throw new Error('Required integration unavailable');

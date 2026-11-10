@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { X, LoaderCircle, ExternalLink } from 'lucide-react';
 import { api, type User } from '../api';
+import { DiscordSettings } from './DiscordSettings';
 import { ErrorMessage, Loading } from './ui';
 import './IntegrationSettings.css';
 interface SettingsData {
@@ -89,7 +90,10 @@ export function IntegrationSettings({
       className="integration-dialog"
       aria-labelledby={titleId}
       onClose={() => {
-        if (!dialog.current?.open) onClose();
+        if (!dialog.current?.open) {
+          void onSaved().catch(() => {});
+          onClose();
+        }
       }}
       onClick={(event) => {
         if (event.target !== event.currentTarget) return;
@@ -115,7 +119,9 @@ export function IntegrationSettings({
         </button>
       </div>
       <ErrorMessage error={error} />
-      {editable ? (
+      {integration.id === 'discord' ? (
+        <DiscordSettings user={user} onSaved={onSaved} />
+      ) : editable ? (
         !data ? (
           error ? (
             <button onClick={() => setAttempt((value) => value + 1)}>Erneut versuchen</button>
