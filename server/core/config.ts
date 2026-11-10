@@ -14,9 +14,12 @@ export function configFromEnv(): Config {
     throw new Error('APP_URL must be an origin without a trailing slash');
   if (
     parsed.protocol !== 'https:' &&
-    !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname)
+    !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname) &&
+    process.env.ALLOW_INSECURE_HTTP !== 'true'
   )
-    throw new Error('Remote APP_URL requires HTTPS');
+    throw new Error(
+      'Remote APP_URL requires HTTPS; set ALLOW_INSECURE_HTTP=true only for a trusted LAN.',
+    );
   if (
     !/^[a-f0-9]{64}$/i.test(process.env.ENCRYPTION_KEY || '') ||
     (process.env.SETUP_TOKEN || '').length < 32
