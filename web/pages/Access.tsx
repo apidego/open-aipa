@@ -1,49 +1,70 @@
 import { useState } from 'react';
-import { ArrowRight, Check, ShieldCheck, KeyRound, UserRound } from 'lucide-react';
+import { ArrowRight, Check, ShieldCheck, KeyRound, UserRound, Eye, EyeOff } from 'lucide-react';
+import './Access.css';
 import { api, post } from '../api';
 import { Brand, ErrorMessage, Field, Form } from '../components/ui';
 export function Access({ setup, reload }: { setup: boolean; reload: () => Promise<void> }) {
+  const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState(0);
   const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const labels = ['Installation verbinden', 'Admin erstellen', 'Assistent einrichten'];
   return (
-    <main className="access">
+    <main className={`access${setup ? '' : ' access-login'}`}>
       <section className="access-story">
         <div className="wordmark">
           <Brand />
-          Open AIPA<span className="badge">OPEN SOURCE</span>
+          Open AIPA
+          <span className={setup ? 'badge' : 'access-context'}>
+            {setup ? 'OPEN SOURCE' : 'DEIN ARBEITSBEREICH'}
+          </span>
         </div>
         <div>
-          <span className="eyebrow">WENIGER ORGANISIEREN. MEHR ERLEDIGEN.</span>
+          <span className="eyebrow">VON DER IDEE ZUR LÖSUNG. MITEINANDER.</span>
           <h1>
             Ein klarer Kopf.
             <br />
             Ein Assistent für dich.
           </h1>
           <p>
-            Deine Gespräche, deine Werkzeuge und deine täglichen Abläufe. An einem Ort. Unter deiner
-            Kontrolle.
+            Deine Gespräche, deine Werkzeuge und deine Aufgaben an einem Ort – übersichtlich und
+            unter deiner Kontrolle.
           </p>
-          <div className="story-orbit">
-            <div className="orbit-inner">
-              <Brand />
+          {setup ? (
+            <div className="story-orbit">
+              <div className="orbit-inner">
+                <Brand />
+              </div>
+              <span className="orbit-label one">Konversationen</span>
+              <span className="orbit-label two">Integrationen</span>
+              <span className="orbit-label three">Automatisierungen</span>
             </div>
-            <span className="orbit-label one">Konversationen</span>
-            <span className="orbit-label two">Integrationen</span>
-            <span className="orbit-label three">Automatisierungen</span>
-          </div>
+          ) : (
+            <ul className="access-benefits">
+              {[
+                'Persönlicher KI-Assistent',
+                'Tools & Automatisierungen',
+                'Gespräche & Integrationen',
+                'Auf deinem Server. Unter deiner Kontrolle.',
+              ].map((benefit) => (
+                <li key={benefit}>
+                  <Check size={23} strokeWidth={2.5} aria-hidden="true" />
+                  {benefit}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <small>Self-hosted · Open Source · Powered by OpenAI</small>
+        {setup && <small>Self-hosted · Open Source · Powered by OpenAI</small>}
       </section>
       <section className="access-form">
         <div className="access-card">
-          <span className="eyebrow">{setup ? 'WILLKOMMEN AN BORD' : 'DEIN WORKSPACE'}</span>
+          {setup && <span className="eyebrow">WILLKOMMEN AN BORD</span>}
           <h2>{setup ? 'Mach ihn zu deinem PA.' : 'Willkommen zurück.'}</h2>
           <p>
             {setup
               ? 'In drei Schritten ist dein persönlicher Assistent startklar.'
-              : 'Melde dich an, um mit deinem Assistenten weiterzumachen.'}
+              : 'Melde dich an, um zu deinem Arbeitsbereich zu gelangen.'}
           </p>
           {setup ? (
             <>
@@ -160,8 +181,44 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
                 await reload();
               }}
             >
-              <Field label="E-Mail" name="email" type="email" />
-              <Field label="Passwort" name="password" type="password" />
+              <label className="field" htmlFor="login-email">
+                <span>E-Mail</span>
+                <input
+                  id="login-email"
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  maxLength={254}
+                />
+              </label>
+              <div className="field">
+                <label htmlFor="login-password">Passwort</label>
+                <div className="access-password">
+                  <input
+                    id="login-password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    maxLength={500}
+                  />
+                  <button
+                    type="button"
+                    className="access-password-toggle"
+                    aria-label={showPassword ? 'Passwort verbergen' : 'Passwort anzeigen'}
+                    aria-pressed={showPassword}
+                    aria-controls="login-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} aria-hidden="true" />
+                    ) : (
+                      <Eye size={18} aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </Form>
           )}
           <small className="access-footer">

@@ -1,0 +1,193 @@
+.access-login {
+  background: #fafbf9;
+  color: #141814;
+}
+.access-login .access-story {
+  position: relative;
+  justify-content: center;
+  border: 0;
+  background: #eff3eb;
+  padding: 130px 9.1%;
+  gap: 0;
+  overflow: visible;
+}
+.access-login .access-story > .wordmark {
+  position: absolute;
+  top: 36px;
+  left: 9.1%;
+  font-size: 20px;
+  letter-spacing: -0.6px;
+  gap: 12px;
+}
+.access-context {
+  border-left: 1px solid #bfc7ba;
+  margin-left: 10px;
+  padding-left: 22px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.access-login .eyebrow {
+  color: #424b40;
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  line-height: 1.7;
+}
+.access-login .access-story h1 {
+  margin: 22px 0 18px;
+  color: #101510;
+  font-size: clamp(32px, 2.65vw, 48px);
+  line-height: 1.12;
+  letter-spacing: -1.7px;
+  font-weight: 600;
+}
+.access-login .access-story p {
+  max-width: 480px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.65;
+  color: #444b42;
+}
+.access-benefits {
+  list-style: none;
+  padding: 0;
+  margin: 48px 0 0;
+  display: grid;
+  gap: 15px;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.access-benefits li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.access-benefits svg {
+  flex-shrink: 0;
+  color: #537e41;
+}
+.access-login .access-form {
+  padding: 100px 48px;
+}
+.access-login .access-card {
+  max-width: 470px;
+}
+.access-login .access-card h2 {
+  margin: 0 0 8px;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  line-height: 1.2;
+}
+.access-login .access-card > p {
+  margin: 0 0 26px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #444b42;
+}
+.access-login form {
+  padding: 26px 24px;
+  border: 1px solid #dce0d8;
+  border-radius: 9px;
+  background: #ffffff80;
+  box-shadow: 0 2px 4px #18271409;
+}
+.access-login .field {
+  margin: 0 0 24px;
+  gap: 8px;
+}
+.access-login .field > span,
+.access-login .field > label {
+  color: #20271e;
+  font-size: 14px;
+  font-weight: 550;
+}
+.access-login input {
+  height: 44px;
+  font-size: 16px;
+  background: transparent;
+}
+.access-password {
+  position: relative;
+}
+.access-password input {
+  padding-right: 48px;
+}
+.access-password-toggle {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  width: 44px;
+  height: 42px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  color: #70776e;
+  background: transparent;
+}
+.access-login .form-actions {
+  margin-top: 36px;
+}
+.access-login .primary {
+  width: 100%;
+  min-height: 46px;
+  font-size: 16px;
+  background: #2d4524;
+  border-color: #2d4524;
+}
+.access-login .primary:hover {
+  background: #3b5730;
+}
+.access-login .access-footer {
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+  color: #656e60;
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 1000px) {
+  .access-login .access-story {
+    padding: 120px 32px 60px;
+  }
+  .access-login .access-story > .wordmark {
+    left: 32px;
+  }
+  .access-context {
+    display: none;
+  }
+  .access-login .access-form {
+    padding: 80px 32px;
+  }
+  .access-login .access-card h2 {
+    font-size: 30px;
+  }
+}
+@media (max-width: 700px) {
+  .access-login {
+    display: flex;
+    flex-direction: column;
+  }
+  .access-login .access-story {
+    padding: 25px 24px;
+  }
+  .access-login .access-story > .wordmark {
+    position: static;
+    font-size: 20px;
+  }
+  .access-login .access-story > div:nth-child(2) {
+    display: none;
+  }
+  .access-login .access-form {
+    flex: 1;
+    padding: 48px 24px;
+    align-items: start;
+  }
+  .access-login .access-card h2 {
+    font-size: 30px;
+  }
+  .access-login form {
+    padding: 24px 20px;
+  }
+}
