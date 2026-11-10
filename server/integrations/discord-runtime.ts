@@ -1,3 +1,4 @@
+import { syncBotProfile } from '../modules/bot-profile.js';
 import { Client, Events, GatewayIntentBits, Partials, ChannelType } from 'discord.js';
 import { conversationContext, type PrepareContext } from '../modules/conversation-context.js';
 import type { Context } from '../core/context.js';
@@ -68,6 +69,7 @@ export function discordRuntime(
       : '';
   async function sync() {
     if (stopped) return;
+    void syncBotProfile(ctx).catch(() => {});
     const key = desired();
     if (key === current && (transport || transitioning || !key || Date.now() < retryAt)) return;
     const revision = ++epoch,

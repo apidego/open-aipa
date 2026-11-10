@@ -1,3 +1,4 @@
+import { BotProfileSettings } from '../components/BotProfileSettings';
 import { useEffect, useState } from 'react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Field, Form, Loading, PageTitle } from '../components/ui';
@@ -17,9 +18,13 @@ export function Settings({ user }: { user: User }) {
   }, []);
   return (
     <>
-      <PageTitle title="Einstellungen" description="KI-Modell und Kontoeinstellungen verwalten." />
+      <PageTitle
+        title="Einstellungen"
+        description="Bot-Profil, KI-Modell und Kontoeinstellungen verwalten."
+      />
       <ErrorMessage error={error} />
       <div className="settings-grid">
+        {user.role === 'admin' && <BotProfileSettings />}
         {user.role === 'admin' &&
           (!data ? (
             <Loading />

@@ -9,6 +9,7 @@ import { Store } from './core/db.js';
 import { Vault, digest } from './core/security.js';
 import { authenticated, HttpError, type User } from './core/http.js';
 import { authRoutes } from './modules/auth.js';
+import { botProfileRoutes } from './modules/bot-profile.js';
 import { settingsRoutes } from './modules/settings.js';
 import { agentRunner, type RunAgent } from './modules/agent.js';
 import { conversationContext, type Summarize } from './modules/conversation-context.js';
@@ -62,6 +63,7 @@ export function createApp(
       message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
     }),
   );
+  app.use('/api/bot-profile', express.json({ limit: '3mb' }));
   app.use(express.json({ limit: '64kb' }), cookieParser());
   app.use('/api', (req, _res, next) => {
     // Enforce exact origin for all writes, including login and setup. No wildcard CORS.
@@ -82,6 +84,7 @@ export function createApp(
   app.use('/api', authRoutes(ctx));
   app.use('/api', authenticated);
   app.use('/api/settings', settingsRoutes(ctx));
+  app.use('/api/bot-profile', botProfileRoutes(ctx));
   const runAgent = overrideAgent || agentRunner(ctx);
   const prepare = conversationContext(ctx, overrideSummary);
   const discord = discordRuntime(ctx, runAgent, undefined, prepare);
