@@ -117,7 +117,7 @@ export function Integrations({ user }: { user: User }) {
             <h3>Platz für mehr.</h3>
             <p>Weitere Dienste lassen sich über das modulare Integrationssystem ergänzen.</p>
             <a
-              href="https://github.com/apidego/openaipa/issues/new?template=feature.yml"
+              href="https://github.com/apidego/open-aipa/issues/new?template=feature.yml"
               target="_blank"
               rel="noreferrer"
             >

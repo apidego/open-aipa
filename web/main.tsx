@@ -77,9 +77,9 @@ function App() {
   return (
     <div className={`shell ${collapsed ? 'collapsed' : ''}`}>
       <aside className="sidebar">
-        <NavLink to="/" className="wordmark" aria-label="OpenAI PA Dashboard">
+        <NavLink to="/" className="wordmark" aria-label="Open AIPA Dashboard">
           <Brand />
-          <span className="nav-text">OpenAI PA</span>
+          <span className="nav-text">Open AIPA</span>
         </NavLink>
         <div className="workspace-label nav-text">WORKSPACE</div>
         <nav
@@ -143,7 +143,7 @@ function App() {
           <span>{title}</span>
           <div>
             <a
-              href="https://github.com/apidego/openaipa"
+              href="https://github.com/apidego/open-aipa"
               target="_blank"
               rel="noreferrer"
               className="repo-link"

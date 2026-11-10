@@ -12,7 +12,7 @@ export function Access({ setup, reload }: { setup: boolean; reload: () => Promis
       <section className="access-story">
         <div className="wordmark">
           <Brand />
-          OpenAI PA<span className="badge">OPEN SOURCE</span>
+          Open AIPA<span className="badge">OPEN SOURCE</span>
         </div>
         <div>
           <span className="eyebrow">WENIGER ORGANISIEREN. MEHR ERLEDIGEN.</span>
