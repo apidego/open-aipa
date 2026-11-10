@@ -27,6 +27,7 @@ async function clientFor(ctx: Context, userId: string) {
   );
   if (!row) throw new HttpError(400, 'Gmail ist nicht verbunden.');
   const client = googleClient(ctx);
+  const generation = ctx.store.setting('gmailGeneration');
   client.setCredentials(JSON.parse(ctx.vault.open(row.credentials)));
   client.on('tokens', (tokens) => {
     const latest = ctx.store.get<{ credentials: string }>(
@@ -34,7 +35,12 @@ async function clientFor(ctx: Context, userId: string) {
       userId,
       'gmail',
     );
-    if (latest && integrationEnabled(ctx, 'gmail'))
+    if (
+      latest &&
+      latest.credentials === row.credentials &&
+      integrationEnabled(ctx, 'gmail') &&
+      ctx.store.setting('gmailGeneration') === generation
+    )
       ctx.store.run(
         'UPDATE connections SET credentials=? WHERE user_id=? AND provider=?',
         ctx.vault.seal(
@@ -97,6 +103,7 @@ export const gmail: Integration = {
   },
   deactivate(ctx) {
     ctx.store.run('DELETE FROM oauth_states');
+    ctx.store.set('gmailGeneration', token());
   },
   clearConfiguration(ctx) {
     ctx.store.run("DELETE FROM settings WHERE key IN ('googleClientId','googleClientSecret')");
@@ -163,6 +170,7 @@ export function gmailRoutes(ctx: Context) {
       .strict()
       .parse(req.body);
     store.transaction(() => {
+      gmail.deactivate!(ctx);
       store.set('googleClientId', input.clientId);
       if (input.clientSecret) store.set('googleClientSecret', vault.seal(input.clientSecret));
     });
@@ -171,7 +179,11 @@ export function gmailRoutes(ctx: Context) {
   router.post('/connect', async (req, res) => {
     const client = googleClient(ctx);
     const state = token();
+    const generation = store.setting('gmailGeneration');
     const { codeVerifier, codeChallenge } = await client.generateCodeVerifierAsync();
+    requireIntegration(ctx, 'gmail');
+    if (store.setting('gmailGeneration') !== generation)
+      throw new HttpError(409, 'Gmail-Konfiguration wurde geändert. Bitte erneut verbinden.');
     store.run('DELETE FROM oauth_states WHERE expires_at<? OR user_id=?', Date.now(), req.user!.id);
     store.run(
       'INSERT INTO oauth_states VALUES(?,?,?,?,?)',
@@ -207,6 +219,7 @@ export function gmailRoutes(ctx: Context) {
       return res.redirect('/integrations?error=oauth_denied');
     try {
       const client = googleClient(ctx);
+      const generation = store.setting('gmailGeneration');
       const { tokens } = await client.getToken({
         code: req.query.code,
         codeVerifier: saved.verifier,
@@ -214,6 +227,8 @@ export function gmailRoutes(ctx: Context) {
       if (!tokens.refresh_token || !tokens.scope?.split(' ').includes(scope))
         return res.redirect('/integrations?error=oauth_scope');
       requireIntegration(ctx, 'gmail');
+      if (store.setting('gmailGeneration') !== generation)
+        return res.redirect('/integrations?error=oauth_changed');
       store.run(
         'INSERT INTO connections VALUES(?,?,?) ON CONFLICT(user_id,provider) DO UPDATE SET credentials=excluded.credentials',
         req.user!.id,

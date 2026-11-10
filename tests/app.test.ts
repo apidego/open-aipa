@@ -485,3 +485,38 @@ describe('integration activation', () => {
     expect(instance.ctx.store.setting('integration:gmail:enabled')).toBe('false');
   });
 });
+
+it('does not restore a Gmail connection when an old OAuth exchange completes after deactivate/reactivate', async () => {
+  const { OAuth2Client } = await import('google-auth-library');
+  const { gmail } = await import('../server/integrations/gmail.js');
+  const admin = await setup();
+  instance.ctx.store.set('googleClientId', 'test-id');
+  instance.ctx.store.set('googleClientSecret', instance.ctx.vault.seal('test-secret'));
+  const begin = await admin
+    .post('/api/integrations/gmail/connect')
+    .set('Origin', origin)
+    .expect(200);
+  const state = new URL(begin.body.url).searchParams.get('state');
+  const exchange = vi.spyOn(OAuth2Client.prototype, 'getToken').mockImplementation(async () => {
+    instance.ctx.store.set('integration:gmail:enabled', 'false');
+    gmail.deactivate!(instance.ctx);
+    gmail.clearConfiguration(instance.ctx);
+    instance.ctx.store.set('integration:gmail:enabled', 'true');
+    return {
+      tokens: {
+        access_token: 'old-access',
+        refresh_token: 'old-refresh',
+        scope: 'https://www.googleapis.com/auth/gmail.readonly',
+      },
+      res: null,
+    } as never;
+  });
+  try {
+    await admin
+      .get(`/api/integrations/gmail/callback?state=${state}&code=test`)
+      .expect('Location', '/integrations?error=oauth_changed');
+    expect(instance.ctx.store.all('SELECT * FROM connections')).toEqual([]);
+  } finally {
+    exchange.mockRestore();
+  }
+});
