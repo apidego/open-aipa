@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowUp, Plus, Trash2, MessageSquare, LoaderCircle } from 'lucide-react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowUp, ArrowLeft, Plus, Trash2, LoaderCircle } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { api, post, type Conversation } from '../api';
-import { Brand, Empty, ErrorMessage } from '../components/ui';
+import { Brand, Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
+import './Conversations.css';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -16,9 +17,12 @@ export function Conversations() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
-  const end = useRef<HTMLDivElement>(null);
+  const history = useRef<HTMLDivElement>(null);
   const active = useRef<AbortController | null>(null);
   const refresh = () => api<Conversation[]>('/conversations').then(setItems);
   useEffect(() => {
@@ -30,6 +34,7 @@ export function Conversations() {
     active.current?.abort();
     setBusy(false);
     setError('');
+    setLoadError('');
     setMessages([]);
     setDraft((location.state as { prompt?: string })?.prompt || '');
     if (id) {
@@ -39,7 +44,7 @@ export function Conversations() {
           if (alive) setMessages(data);
         })
         .catch((e) => {
-          if (alive) setError(e.message);
+          if (alive) setLoadError(e.message);
         })
         .finally(() => {
           if (alive) setLoading(false);
@@ -48,21 +53,31 @@ export function Conversations() {
     return () => {
       alive = false;
     };
-  }, [id]);
+  }, [id, attempt]);
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = history.current;
+    container?.scrollTo({
+      top: container.scrollHeight,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'instant'
+        : 'smooth',
+    });
   }, [messages]);
   async function create() {
+    if (creating || busy) return;
+    setCreating(true);
     try {
       const data = await api('/conversations', post({}));
       await refresh();
       navigate(`/conversations/${data.id}`);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setCreating(false);
     }
   }
   async function send() {
-    if (!draft.trim() || busy || !id) return;
+    if (!draft.trim() || busy || loading || loadError || !id) return;
     const text = draft.trim();
     const previous = messages;
     const controller = new AbortController();
@@ -125,37 +140,29 @@ export function Conversations() {
     }
   }
   return (
-    <div className="conversation-layout">
-      <aside className="conversation-list">
-        <div className="card-heading">
-          <h3>Konversationen</h3>
-          <button className="icon-button" aria-label="Neue Konversation" onClick={create}>
-            <Plus size={19} />
+    <div className="chat-page">
+      <Link className="chat-back" to="/conversations">
+        <ArrowLeft size={15} />
+        Alle Konversationen
+      </Link>
+      <PageTitle
+        eyebrow="DEIN PERSÖNLICHER ASSISTENT"
+        title={items.find((item) => item.id === id)?.title || 'Dein Gespräch'}
+        description="Ein guter Ort für Fragen, Ideen und den nächsten Schritt."
+        action={
+          <button className="primary" onClick={create} disabled={creating || busy}>
+            {creating ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}
+            {creating ? 'Wird erstellt …' : 'Neue Konversation'}
           </button>
-        </div>
-        <button className="new-chat" onClick={create}>
-          <Plus size={16} /> Neues Gespräch
-        </button>
-        <div className="conversation-items">
-          {items.map((c) => (
-            <button
-              className={`conversation-item ${id === c.id ? 'selected' : ''}`}
-              key={c.id}
-              onClick={() => navigate(`/conversations/${c.id}`)}
-            >
-              <MessageSquare size={16} />
-              <span>{c.title}</span>
-            </button>
-          ))}
-        </div>
-      </aside>
-      <section className="chat">
+        }
+      />
+      <section className="card chat" aria-label="Chat">
         <div className="chat-heading">
           <div className="wordmark">
             <Brand />
             <div>
-              <strong>Dein persönlicher Assistent</strong>
-              <small>Ein guter Ort für den nächsten Schritt.</small>
+              <strong>Open AIPA</strong>
+              <small>{busy ? 'Dein PA antwortet …' : 'Dein persönlicher Assistent'}</small>
             </div>
           </div>
           {id && (
@@ -178,30 +185,39 @@ export function Conversations() {
             </button>
           )}
         </div>
-        <div className="messages">
-          {!messages.length && (
-            <Empty title={id ? 'Womit fangen wir an?' : 'Ein Gespräch kann vieles bewegen.'}>
-              {id ? (
-                'Stell eine Frage oder gib deinem PA einen konkreten Auftrag.'
-              ) : (
-                <button className="primary" onClick={create}>
-                  Neue Konversation
-                  <Plus size={15} />
-                </button>
-              )}
-            </Empty>
+        <div
+          className="messages"
+          ref={history}
+          role="log"
+          aria-label="Nachrichtenverlauf"
+          aria-busy={loading}
+        >
+          {loading ? (
+            <Loading />
+          ) : loadError ? (
+            <div className="chat-load-error">
+              <ErrorMessage error={loadError} />
+              <button onClick={() => setAttempt(attempt + 1)}>Erneut versuchen</button>
+            </div>
+          ) : (
+            !messages.length && (
+              <Empty title="Womit fangen wir an?">
+                Stell eine Frage oder gib deinem PA einen konkreten Auftrag.
+              </Empty>
+            )
           )}
           {messages.map((m, i) => (
             <article className={`message ${m.role}`} key={i}>
-              <span className="message-label">{m.role === 'user' ? 'DU' : 'DEIN PA'}</span>
+              <span className="message-label">{m.role === 'user' ? 'Du' : 'Open AIPA'}</span>
               {m.content ? (
                 <Markdown>{m.content}</Markdown>
               ) : (
-                <LoaderCircle size={19} className="spin" />
+                <span role="status" aria-label="Antwort wird erstellt">
+                  <LoaderCircle size={19} className="spin" />
+                </span>
               )}
             </article>
           ))}
-          <div ref={end} />
         </div>
         <div className="composer-wrap">
           <ErrorMessage error={error} />
@@ -217,7 +233,7 @@ export function Conversations() {
               placeholder="Schreib deinem PA …"
               value={draft}
               maxLength={16000}
-              disabled={!id || busy || loading}
+              disabled={!id || busy || loading || !!loadError}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -229,7 +245,7 @@ export function Conversations() {
             <button
               className="primary icon-button"
               aria-label="Nachricht senden"
-              disabled={!id || !draft.trim() || busy || loading}
+              disabled={!id || !draft.trim() || busy || loading || !!loadError}
             >
               {busy ? <LoaderCircle size={19} className="spin" /> : <ArrowUp size={20} />}
             </button>
