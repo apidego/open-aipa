@@ -4,6 +4,7 @@ export interface Config {
   dataDir: string;
   encryptionKey: string;
   setupToken: string;
+  chatContextTokens?: number;
   googleClientId: string;
   googleClientSecret: string;
 }
@@ -25,7 +26,11 @@ export function configFromEnv(): Config {
     (process.env.SETUP_TOKEN || '').length < 32
   )
     throw new Error('Run npm run setup to generate ENCRYPTION_KEY and SETUP_TOKEN.');
+  const chatContextTokens = Number(process.env.CHAT_CONTEXT_TOKENS || 32768);
+  if (!Number.isInteger(chatContextTokens) || chatContextTokens < 8192 || chatContextTokens > 65536)
+    throw new Error('CHAT_CONTEXT_TOKENS must be an integer from 8192 to 65536.');
   return {
+    chatContextTokens,
     url,
     dataDir: resolve(process.env.DATA_DIR || './data'),
     encryptionKey: process.env.ENCRYPTION_KEY!,

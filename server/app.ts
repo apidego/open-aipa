@@ -11,6 +11,7 @@ import { authenticated, HttpError, type User } from './core/http.js';
 import { authRoutes } from './modules/auth.js';
 import { settingsRoutes } from './modules/settings.js';
 import { agentRunner, type RunAgent } from './modules/agent.js';
+import { conversationContext, type Summarize } from './modules/conversation-context.js';
 import { conversationRoutes } from './modules/conversations.js';
 import { scheduler } from './modules/jobs/scheduler.js';
 import { jobRoutes } from './modules/jobs/routes.js';
@@ -22,7 +23,12 @@ import { discordRuntime } from './integrations/discord-runtime.js';
 import { gmailRoutes } from './integrations/gmail.js';
 import { connectedIntegrations } from './integrations/registry.js';
 import { integrationRoutes, initializeIntegrations } from './integrations/routes.js';
-export function createApp(config: Config, overrideAgent?: RunAgent, overridePlanner?: PlanJob) {
+export function createApp(
+  config: Config,
+  overrideAgent?: RunAgent,
+  overridePlanner?: PlanJob,
+  overrideSummary?: Summarize,
+) {
   const store = new Store(config.dataDir);
   const ctx = { store, config, vault: new Vault(config.encryptionKey) };
   initializeIntegrations(ctx);
@@ -77,8 +83,9 @@ export function createApp(config: Config, overrideAgent?: RunAgent, overridePlan
   app.use('/api', authenticated);
   app.use('/api/settings', settingsRoutes(ctx));
   const runAgent = overrideAgent || agentRunner(ctx);
-  const discord = discordRuntime(ctx, runAgent);
-  app.use('/api/conversations', conversationRoutes(ctx, runAgent));
+  const prepare = conversationContext(ctx, overrideSummary);
+  const discord = discordRuntime(ctx, runAgent, undefined, prepare);
+  app.use('/api/conversations', conversationRoutes(ctx, runAgent, prepare));
   const planJob = overridePlanner || jobPlanner(ctx);
   app.use('/api/automations', jobRoutes(ctx, 'automation', planJob));
   app.use('/api/tasks', jobRoutes(ctx, 'task', planJob));

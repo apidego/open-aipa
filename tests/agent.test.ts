@@ -132,3 +132,30 @@ it('requests structured task outcomes and fails task integration errors instead 
     'Task integration failed',
   );
 });
+
+it('rejects requests over the input budget before contacting the provider', async () => {
+  ctx.config.chatContextTokens = 8192;
+  await expect(
+    agentRunner(ctx)('u1', [{ role: 'user', content: '漢字語句'.repeat(4000) }]),
+  ).rejects.toThrow('Kontextbudget');
+  expect(create).not.toHaveBeenCalled();
+});
+it('bounds tool output and checks the entire request again before the next tool round', async () => {
+  ctx.store.set('integration:gmail:enabled', 'true');
+  ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'encrypted');
+  vi.spyOn(gmail, 'execute').mockResolvedValue({ body: '不同的邮件內容 '.repeat(5000) });
+  create
+    .mockResolvedValueOnce(
+      events([
+        { type: 'function_call', call_id: 'long', name: 'gmail_read', arguments: '{"id":"abc"}' },
+      ]),
+    )
+    .mockResolvedValueOnce(events([], 'Answer'));
+  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Read this' }]);
+  const next = create.mock.calls[1][0];
+  const result = JSON.parse(
+    next.input.find((item: any) => item.type === 'function_call_output').output,
+  );
+  expect(result.truncated).toBe(true);
+  expect(result.warning).toContain('Incomplete');
+});

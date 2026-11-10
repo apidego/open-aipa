@@ -87,3 +87,13 @@ it('installer preserves loopback-only publishing by default', () => {
     rmSync(dir, { recursive: true });
   }
 });
+
+it('validates the shared chat input budget without changing the configured model', () => {
+  vi.stubEnv('APP_URL', 'http://localhost:3000');
+  vi.stubEnv('CHAT_CONTEXT_TOKENS', '32768');
+  expect(configFromEnv().chatContextTokens).toBe(32768);
+  for (const value of ['0', '8191', '65537', 'NaN', '9000.5']) {
+    vi.stubEnv('CHAT_CONTEXT_TOKENS', value);
+    expect(() => configFromEnv()).toThrow('CHAT_CONTEXT_TOKENS');
+  }
+});

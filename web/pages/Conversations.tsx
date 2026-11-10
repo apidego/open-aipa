@@ -22,6 +22,7 @@ export function Conversations() {
   const [attempt, setAttempt] = useState(0);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [contextNotice, setContextNotice] = useState<string | null>(null);
   const history = useRef<HTMLDivElement>(null);
   const active = useRef<AbortController | null>(null);
   const refresh = () => api<Conversation[]>('/conversations').then(setItems);
@@ -35,6 +36,7 @@ export function Conversations() {
     setBusy(false);
     setError('');
     setLoadError('');
+    setContextNotice(null);
     setMessages([]);
     setDraft((location.state as { prompt?: string })?.prompt || '');
     if (id) {
@@ -111,6 +113,7 @@ export function Conversations() {
           if (!raw) continue;
           const data = JSON.parse(raw);
           if (event === 'error') throw new Error(data.error);
+          if (event === 'context') setContextNotice(data.notice || null);
           if (event === 'done') done = true;
           if (event === 'delta') {
             answer += data.text;
@@ -219,6 +222,11 @@ export function Conversations() {
           ))}
         </div>
         <div className="composer-wrap">
+          {contextNotice && (
+            <p className="notice" role="status">
+              {contextNotice}
+            </p>
+          )}
           <ErrorMessage error={error} />
           <form
             className="composer"

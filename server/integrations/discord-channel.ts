@@ -1,8 +1,10 @@
 import { conversationLocks } from '../modules/conversation-locks.js';
 import { randomUUID } from 'node:crypto';
 import type { Context } from '../core/context.js';
+import { HttpError } from '../core/http.js';
 import { digest } from '../core/security.js';
-import type { ChatMessage, RunAgent } from '../modules/agent.js';
+import { conversationContext, type PrepareContext } from '../modules/conversation-context.js';
+import type { RunAgent } from '../modules/agent.js';
 import { integrationEnabled } from './state.js';
 export interface DirectMessage {
   id: string;
@@ -32,6 +34,7 @@ export function discordMessages(
   runAgent: RunAgent,
   send: SendReply,
   alive: () => boolean = () => true,
+  prepare: PrepareContext = conversationContext(ctx),
 ) {
   const { store } = ctx;
   const busy = new Set<string>();
@@ -188,16 +191,11 @@ export function discordMessages(
       }
       lockedId = conversationId;
       locks.add(conversationId);
-      const history = store.all<ChatMessage>(
-        'SELECT role,content FROM (SELECT id,role,content FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT 60) ORDER BY id',
-        conversationId,
-      );
-      const result = await runAgent(
-        link.user_id,
-        [...history, { role: 'user', content }],
-        undefined,
-        { signal: AbortSignal.any([abort.signal, AbortSignal.timeout(120000)]) },
-      );
+      const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(120000)]);
+      const context = await prepare(link.user_id, conversationId, content, signal);
+      if (!linked()) return;
+      if (context.notice) await send(message.channelId, context.notice, linked);
+      const result = await runAgent(link.user_id, context.messages, undefined, { signal });
       if (
         !linked() ||
         !store.get(
@@ -228,10 +226,12 @@ export function discordMessages(
         if (!linked()) return;
         await send(message.channelId, output.slice(offset, offset + 1900), linked);
       }
-    } catch {
+    } catch (error) {
       if (linked())
         await reply(
-          'Antwort oder Zustellung fehlgeschlagen. Prüfe die Konversation im Dashboard, bevor du den Auftrag erneut sendest.',
+          error instanceof HttpError
+            ? error.message
+            : 'Antwort oder Zustellung fehlgeschlagen. Prüfe die Konversation im Dashboard, bevor du den Auftrag erneut sendest.',
         );
     } finally {
       clearInterval(monitor);
