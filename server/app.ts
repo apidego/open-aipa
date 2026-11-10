@@ -18,10 +18,12 @@ import { jobPlanner } from './modules/jobs/planner.js';
 import { notificationRoutes } from './modules/jobs/notifications.js';
 import type { PlanJob } from './modules/jobs/types.js';
 import { gmailRoutes } from './integrations/gmail.js';
-import { integrations } from './integrations/registry.js';
+import { connectedIntegrations } from './integrations/registry.js';
+import { integrationRoutes, initializeIntegrations } from './integrations/routes.js';
 export function createApp(config: Config, overrideAgent?: RunAgent, overridePlanner?: PlanJob) {
   const store = new Store(config.dataDir);
   const ctx = { store, config, vault: new Vault(config.encryptionKey) };
+  initializeIntegrations(ctx);
   const app = express();
   app.disable('x-powered-by');
   app.use(
@@ -78,31 +80,14 @@ export function createApp(config: Config, overrideAgent?: RunAgent, overridePlan
   app.use('/api/automations', jobRoutes(ctx, 'automation', planJob));
   app.use('/api/tasks', jobRoutes(ctx, 'task', planJob));
   app.use('/api/notifications', notificationRoutes(ctx));
-  app.get('/api/integrations', (req, res) => {
-    const connected = store.all<{ provider: string }>(
-      'SELECT provider FROM connections WHERE user_id=?',
-      req.user!.id,
-    );
-    res.json(
-      integrations.map((i) => ({
-        id: i.id,
-        name: i.name,
-        description: i.description,
-        connected: connected.some((c) => c.provider === i.id),
-        configured: !!(
-          (store.setting('googleClientId') || config.googleClientId) &&
-          (store.setting('googleClientSecret') || config.googleClientSecret)
-        ),
-      })),
-    );
-  });
+  app.use('/api/integrations', integrationRoutes(ctx));
   app.use('/api/integrations/gmail', gmailRoutes(ctx));
   app.get('/api/dashboard', (req, res) => {
     const count = (table: string) =>
       store.get<{ n: number }>(`SELECT COUNT(*) n FROM ${table} WHERE user_id=?`, req.user!.id)!.n;
     res.json({
       conversations: count('conversations'),
-      integrations: count('connections'),
+      integrations: connectedIntegrations(ctx, req.user!.id).length,
       automations: store.get<{ n: number }>(
         "SELECT COUNT(*) n FROM jobs WHERE user_id=? AND kind='automation'",
         req.user!.id,

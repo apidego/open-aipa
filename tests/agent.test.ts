@@ -68,6 +68,7 @@ it('streams text with custom settings and no server-side OpenAI storage', async 
   });
 });
 it('executes only connected tools for the authenticated owner and returns outputs to the model', async () => {
+  ctx.store.set('integration:gmail:enabled', 'true');
   ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'encrypted');
   const execute = vi.spyOn(gmail, 'execute').mockResolvedValue({ messages: [{ id: 'abc123' }] });
   const call = {
@@ -119,6 +120,7 @@ it('requests structured task outcomes and fails task integration errors instead 
     name: 'task_outcome',
     strict: true,
   });
+  ctx.store.set('integration:gmail:enabled', 'true');
   ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'encrypted');
   vi.spyOn(gmail, 'execute').mockRejectedValue(new Error('private provider error'));
   create.mockResolvedValueOnce(

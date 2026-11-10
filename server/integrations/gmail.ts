@@ -5,11 +5,12 @@ import type { Context } from '../core/context.js';
 import { admin, HttpError } from '../core/http.js';
 import { digest, token } from '../core/security.js';
 import type { Integration } from './types.js';
+import { gmailSettings, requireIntegration, integrationEnabled } from './state.js';
 const scope = 'https://www.googleapis.com/auth/gmail.readonly';
 export function googleClient(ctx: Context) {
-  const id = ctx.store.setting('googleClientId') || ctx.config.googleClientId;
-  const encrypted = ctx.store.setting('googleClientSecret');
-  const secret = encrypted ? ctx.vault.open(encrypted) : ctx.config.googleClientSecret;
+  requireIntegration(ctx, 'gmail');
+  const { clientId: id, encryptedSecret, envSecret } = gmailSettings(ctx);
+  const secret = encryptedSecret ? ctx.vault.open(encryptedSecret) : envSecret;
   if (!id || !secret)
     throw new HttpError(400, 'Bitte zuerst Google OAuth in den Einstellungen konfigurieren.');
   return new OAuth2Client({
@@ -33,7 +34,7 @@ async function clientFor(ctx: Context, userId: string) {
       userId,
       'gmail',
     );
-    if (latest)
+    if (latest && integrationEnabled(ctx, 'gmail'))
       ctx.store.run(
         'UPDATE connections SET credentials=? WHERE user_id=? AND provider=?',
         ctx.vault.seal(
@@ -90,6 +91,17 @@ export const gmail: Integration = {
       },
     },
   ],
+  configured(ctx) {
+    const config = gmailSettings(ctx);
+    return !!(config.clientId && (config.encryptedSecret || config.envSecret));
+  },
+  deactivate(ctx) {
+    ctx.store.run('DELETE FROM oauth_states');
+  },
+  clearConfiguration(ctx) {
+    ctx.store.run("DELETE FROM settings WHERE key IN ('googleClientId','googleClientSecret')");
+    ctx.store.set('integration:gmail:ignoreEnv', 'true');
+  },
   async execute(ctx, userId, name, args) {
     const client = await clientFor(ctx, userId);
     if (name === 'gmail_search') {
@@ -131,10 +143,14 @@ export const gmail: Integration = {
 export function gmailRoutes(ctx: Context) {
   const { store, vault } = ctx;
   const router = Router();
+  router.use((_req, _res, next) => {
+    requireIntegration(ctx, 'gmail');
+    next();
+  });
   router.get('/settings', admin, (_req, res) =>
     res.json({
-      clientId: store.setting('googleClientId') || ctx.config.googleClientId,
-      hasClientSecret: !!(store.setting('googleClientSecret') || ctx.config.googleClientSecret),
+      clientId: gmailSettings(ctx).clientId,
+      hasClientSecret: !!(gmailSettings(ctx).encryptedSecret || gmailSettings(ctx).envSecret),
       callbackUrl: `${ctx.config.url}/api/integrations/gmail/callback`,
     }),
   );
@@ -197,6 +213,7 @@ export function gmailRoutes(ctx: Context) {
       });
       if (!tokens.refresh_token || !tokens.scope?.split(' ').includes(scope))
         return res.redirect('/integrations?error=oauth_scope');
+      requireIntegration(ctx, 'gmail');
       store.run(
         'INSERT INTO connections VALUES(?,?,?) ON CONFLICT(user_id,provider) DO UPDATE SET credentials=excluded.credentials',
         req.user!.id,

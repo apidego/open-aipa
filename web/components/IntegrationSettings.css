@@ -50,3 +50,11 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+.integration-deactivate {
+  margin-top: 16px;
+}
+.integration-dialog input[type='radio'] {
+  width: auto;
+  margin-right: 8px;
+}
