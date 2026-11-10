@@ -1,3 +1,9 @@
+FROM node:24-bookworm-slim AS development
+WORKDIR /app
+RUN mkdir -p /app/node_modules /app/data /home/node/.npm && chown -R node:node /app /home/node/.npm
+USER node
+CMD ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev:docker"]
+
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package*.json ./
