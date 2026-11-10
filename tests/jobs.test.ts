@@ -249,6 +249,7 @@ it('uses only connected integration capabilities as the job owner', async () => 
     script: `const search=pa.tool('gmail_search',{query:'from:example@example.test'});const mail=pa.tool('gmail_read',{id:search.messages[0].id});return {notify:true,title:'Mail',message:mail.text,state:{}};`,
   });
   const job = await draft(a);
+  instance.ctx.store.set('integration:gmail:enabled', 'true');
   instance.ctx.store.run(
     'INSERT INTO connections VALUES(?,?,?)',
     job.user_id,
@@ -403,6 +404,7 @@ it('computes intervals, timezone-aware cron and DST transitions deterministicall
 it('caps tool calls and rejects connected tools not explicitly approved for scripts', async () => {
   const a = await setup(),
     job = await draft(a);
+  instance.ctx.store.set('integration:gmail:enabled', 'true');
   instance.ctx.store.run(
     'INSERT INTO connections VALUES(?,?,?)',
     job.user_id,

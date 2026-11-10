@@ -4,6 +4,9 @@ export interface Integration {
   id: string;
   name: string;
   description: string;
+  configured(ctx: Context): boolean;
+  clearConfiguration(ctx: Context): void;
+  deactivate?(ctx: Context): void;
   tools: FunctionTool[];
   // Explicit read-only capabilities exposed to generated scripts.
   scriptTools?: readonly string[];
