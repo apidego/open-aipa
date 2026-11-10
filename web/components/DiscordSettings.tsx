@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { api, type User } from '../api';
 import { ErrorMessage, Loading } from './ui';
 interface DiscordData {
@@ -92,16 +93,20 @@ export function DiscordSettings({
             <form onSubmit={save}>
               <fieldset disabled={busy}>
                 <p>
-                  Erstelle eine Anwendung im{' '}
+                  Erstelle eine Anwendung im Discord Developer Portal und kopiere unter „Bot“ den
+                  Bot-Token. Privilegierte Intents werden für Direktnachrichten nicht benötigt.
+                </p>
+                <p>
                   <a
+                    className="integration-console-link"
                     href="https://discord.com/developers/applications"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Discord Developer Portal
-                  </a>{' '}
-                  und kopiere unter „Bot“ den Bot-Token. Privilegierte Intents werden für
-                  Direktnachrichten nicht benötigt.
+                    Discord Developer Portal öffnen <ExternalLink size={14} aria-hidden="true" />
+                  </a>
+                  <br />
+                  Wähle dort deine Anwendung und anschließend „Bot“, um den Token zu erstellen.
                 </p>
                 <label className="field">
                   <span>Bot-Token</span>
