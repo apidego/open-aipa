@@ -36,6 +36,8 @@ Open **http://localhost:3000**, enter the setup token printed by the installer, 
 
 For remote access, set your HTTPS origin in the installer and put a TLS reverse proxy in front of port 3000. Docker binds to localhost by default. Back up **both the database volume and `.env`**; losing the encryption key makes stored credentials unreadable. See [operations](docs/operations.md).
 
+For a direct LAN/Unraid test, the installer supports `--allow-insecure-http` with your server IP. This is an explicit opt-in to unencrypted HTTP; see [LAN deployment and persistent appdata](docs/operations.md#trusted-lan--unraid). Default installations remain loopback-only.
+
 ## Gmail
 
 Create a Google OAuth web application, enable the Gmail API, and add the exact redirect URI shown in Settings. Enter the client ID and secret there; each user then connects their own account under Integrations. [Detailed setup and data flow](docs/gmail.md).
