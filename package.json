@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "concurrently -k 'tsx watch server/index.ts' 'vite --host 127.0.0.1'",
+    "dev:docker": "concurrently -k 'tsx watch server/index.ts' 'vite --host 0.0.0.0 --port 5173 --strictPort'",
     "build": "tsc -p tsconfig.server.json && vite build",
     "start": "node --env-file-if-exists=.env dist/server/index.js",
     "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",

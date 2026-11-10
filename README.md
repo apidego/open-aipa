@@ -46,6 +46,17 @@ Create a Google OAuth web application, enable the Gmail API, and add the exact r
 
 ## Development
 
+For development in Docker (source changes need no image rebuild):
+
+```sh
+docker compose stop
+docker compose -f compose.dev.yaml up --build -d --wait
+```
+
+Open http://localhost:3000. Edit files and refresh the browser; the backend restarts automatically. Run setup first if `.env` does not exist. See [Docker development](docs/operations.md#docker-development) for dependency updates and switching back.
+
+Or run directly with Node.js:
+
 ```sh
 npm ci
 npm run setup

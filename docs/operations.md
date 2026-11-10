@@ -8,6 +8,29 @@ For remote use, `APP_URL` should be the exact HTTPS origin (no trailing slash), 
 
 `HOST` defaults to loopback for native runs; Docker sets `0.0.0.0` inside the container while publishing only to host loopback. Use one replica per SQLite database. `/api/health` is unauthenticated and contains no instance data.
 
+## Docker development
+
+Use the standalone `compose.dev.yaml` file from the checkout you want to edit:
+
+```sh
+# Create .env with the installer first if needed (see README).
+docker compose stop
+docker compose -f compose.dev.yaml up --build -d --wait
+```
+
+Visit **http://localhost:3000**. Source is bind-mounted into the container. Vite serves the frontend directly and proxies `/api` to the watched TypeScript backend. Save a frontend change and refresh with Ctrl+R; backend changes restart the server automatically. Docker Desktop file polling is enabled. The development image runs as the same non-root user as production.
+
+The initial command builds a small development image once. Ordinary source edits require no command or build. Dependencies are installed from the lockfile on every container start into a separate Linux volume; host `node_modules` is not used. After changing `package.json` / `package-lock.json`, run `docker compose -f compose.dev.yaml restart app` and wait for installation to finish. Rebuild only after changing the development Dockerfile stage or base image. Logs: `docker compose -f compose.dev.yaml logs --tail=50 -f app`.
+
+The browser origin is fixed to `http://localhost:3000` and the published port is loopback-only, independent of production LAN settings. `.env` still supplies secrets; it is not rewritten. Use the localhost URL for login and OAuth callbacks.
+
+Development uses the same `pa-data` volume (or `PA_DATA_VOLUME`) as production **when using the same Compose project name**. Stop production before starting development; never run two backends against one database. For another worktree, use `-p ORIGINAL_PROJECT_NAME` on both Compose commands and `PA_ENV_FILE=/absolute/path/to/original/.env` so the existing secrets and database stay paired. The bind mount always points to the checkout containing `compose.dev.yaml`; edit that checkout. Do not use `down -v`, which deletes data. To return to production from its checkout:
+
+```sh
+docker compose -f compose.dev.yaml stop
+docker compose up --build -d --wait
+```
+
 ## Trusted LAN / Unraid
 
 To test directly at `http://YOUR-SERVER-IP:3000`, explicitly opt in during installation:
