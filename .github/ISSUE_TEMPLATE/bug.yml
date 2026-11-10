@@ -1,0 +1,16 @@
+name: Bug report
+description: Report a reproducible problem (no secrets)
+body:
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected behavior and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version and environment
+      description: Include Node/Docker version and relevant sanitized errors. Never paste API keys, tokens or private mail.
+    validations:
+      required: true

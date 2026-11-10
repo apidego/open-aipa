@@ -1,0 +1,132 @@
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Check, ExternalLink, Plug, ShieldCheck } from 'lucide-react';
+import { api, post, type User } from '../api';
+import { ErrorMessage, Loading, PageTitle } from '../components/ui';
+interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  connected: boolean;
+  configured: boolean;
+}
+export function Integrations({ user }: { user: User }) {
+  const [items, setItems] = useState<Integration[]>();
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [params] = useSearchParams();
+  const refresh = () => api<Integration[]>('/integrations').then(setItems);
+  useEffect(() => {
+    refresh().catch((e) => setError(e.message));
+    if (params.has('error'))
+      setError(
+        'Google-Verbindung nicht abgeschlossen. Bitte erneut verbinden und den Zugriff auf Gmail erlauben.',
+      );
+  }, []);
+  return (
+    <>
+      <PageTitle
+        eyebrow="DEINE VERBINDUNGEN"
+        title="Alles arbeitet zusammen."
+        description="Verbinde die Werkzeuge, die du täglich nutzt, mit deinem persönlichen Assistenten."
+      />
+      <ErrorMessage error={error} />
+      {params.has('connected') && (
+        <div className="notice success" role="status">
+          Gmail wurde erfolgreich verbunden.
+        </div>
+      )}
+      {!items ? (
+        <Loading />
+      ) : (
+        <div className="integration-grid">
+          {items.map((item) => (
+            <section className="card integration-card" key={item.id}>
+              <div className="card-heading">
+                <span className="gmail-logo">M</span>
+                <span className={`badge ${item.connected ? 'connected' : ''}`}>
+                  {item.connected ? (
+                    <>
+                      <Check size={12} />
+                      Verbunden
+                    </>
+                  ) : (
+                    'Nicht verbunden'
+                  )}
+                </span>
+              </div>
+              <h2>{item.name}</h2>
+              <p>{item.description}</p>
+              <div className="permission">
+                <ShieldCheck size={16} />
+                <span>Lesender Zugriff · Nur dein persönliches Konto</span>
+              </div>
+              <p className="small">
+                Dein PA kann bei passenden Aufträgen E-Mails lesen und deren Inhalt an OpenAI zur
+                Verarbeitung übertragen.
+              </p>
+              {!item.configured ? (
+                <div className="notice">
+                  {user.role === 'admin' ? (
+                    <Link to="/settings">
+                      Google OAuth in den Einstellungen einrichten
+                      <ExternalLink size={13} />
+                    </Link>
+                  ) : (
+                    'Dein Administrator muss zuerst Google OAuth einrichten.'
+                  )}
+                </div>
+              ) : (
+                <button
+                  className={item.connected ? '' : 'primary'}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      if (item.connected) {
+                        await api(`/integrations/${item.id}`, { method: 'DELETE' });
+                        await refresh();
+                      } else {
+                        const result = await api(`/integrations/${item.id}/connect`, post({}));
+                        window.location.assign(result.url);
+                      }
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {busy
+                    ? 'Bitte warten …'
+                    : item.connected
+                      ? 'Verbindung entfernen'
+                      : 'Mit Gmail verbinden'}
+                  <Plug size={15} />
+                </button>
+              )}
+              <small>
+                Beim Entfernen werden lokale Tokens gelöscht. Den Google-Zugriff kannst du
+                zusätzlich in deinem Google-Konto widerrufen.
+              </small>
+            </section>
+          ))}
+          <section className="integration-placeholder">
+            <Plug size={25} strokeWidth={1.3} />
+            <h3>Platz für mehr.</h3>
+            <p>Weitere Dienste lassen sich über das modulare Integrationssystem ergänzen.</p>
+            <a
+              href="https://github.com/apidego/openaipa/issues/new?template=feature.yml"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Integration vorschlagen
+              <ExternalLink size={14} />
+            </a>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}

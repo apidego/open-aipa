@@ -1,0 +1,147 @@
+import express, { type ErrorRequestHandler } from 'express';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import { resolve } from 'node:path';
+import { ZodError } from 'zod';
+import type { Config } from './core/config.js';
+import { Store } from './core/db.js';
+import { Vault, digest } from './core/security.js';
+import { authenticated, HttpError, type User } from './core/http.js';
+import { authRoutes } from './modules/auth.js';
+import { settingsRoutes } from './modules/settings.js';
+import { agentRunner, type RunAgent } from './modules/agent.js';
+import { conversationRoutes } from './modules/conversations.js';
+import { automationRoutes, scheduler } from './modules/automations.js';
+import { gmailRoutes } from './integrations/gmail.js';
+import { integrations } from './integrations/registry.js';
+export function createApp(config: Config, overrideAgent?: RunAgent) {
+  const store = new Store(config.dataDir);
+  const ctx = { store, config, vault: new Vault(config.encryptionKey) };
+  const app = express();
+  app.disable('x-powered-by');
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          'script-src': ["'self'"],
+          'connect-src': ["'self'"],
+          'img-src': ["'self'", 'data:'],
+          'upgrade-insecure-requests': config.url.startsWith('https:') ? [] : null,
+        },
+      },
+      strictTransportSecurity: config.url.startsWith('https:') ? undefined : false,
+    }),
+  );
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.use('/api', (_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: 60000,
+      limit: 180,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      message: { error: 'Zu viele Anfragen. Bitte kurz warten.' },
+    }),
+  );
+  app.use(express.json({ limit: '64kb' }), cookieParser());
+  app.use('/api', (req, _res, next) => {
+    // Enforce exact origin for all writes, including login and setup. No wildcard CORS.
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('origin') !== config.url)
+      throw new HttpError(403, 'Anfrage von nicht erlaubter Herkunft.');
+    const raw = req.cookies.pa_session;
+    if (typeof raw === 'string' && /^[a-f0-9]{64}$/.test(raw)) {
+      const hashed = digest(raw);
+      req.user = store.get<User>(
+        'SELECT u.id,u.email,u.name,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires_at>?',
+        hashed,
+        Date.now(),
+      );
+      if (req.user) req.sessionToken = hashed;
+    }
+    next();
+  });
+  app.use('/api', authRoutes(ctx));
+  app.use('/api', authenticated);
+  app.use('/api/settings', settingsRoutes(ctx));
+  const runAgent = overrideAgent || agentRunner(ctx);
+  app.use('/api/conversations', conversationRoutes(ctx, runAgent));
+  app.use('/api/automations', automationRoutes(ctx));
+  app.get('/api/integrations', (req, res) => {
+    const connected = store.all<{ provider: string }>(
+      'SELECT provider FROM connections WHERE user_id=?',
+      req.user!.id,
+    );
+    res.json(
+      integrations.map((i) => ({
+        id: i.id,
+        name: i.name,
+        description: i.description,
+        connected: connected.some((c) => c.provider === i.id),
+        configured: !!(
+          (store.setting('googleClientId') || config.googleClientId) &&
+          (store.setting('googleClientSecret') || config.googleClientSecret)
+        ),
+      })),
+    );
+  });
+  app.use('/api/integrations/gmail', gmailRoutes(ctx));
+  app.get('/api/dashboard', (req, res) => {
+    const count = (table: string) =>
+      store.get<{ n: number }>(`SELECT COUNT(*) n FROM ${table} WHERE user_id=?`, req.user!.id)!.n;
+    res.json({
+      conversations: count('conversations'),
+      integrations: count('connections'),
+      automations: count('automations'),
+      model: store.setting('model'),
+      recent: store.all(
+        'SELECT id,title,created_at FROM conversations WHERE user_id=? ORDER BY created_at DESC LIMIT 5',
+        req.user!.id,
+      ),
+      runs: store.all(
+        'SELECT r.id,r.status,r.created_at,a.name,a.id automation_id FROM runs r JOIN automations a ON a.id=r.automation_id WHERE a.user_id=? ORDER BY r.created_at DESC LIMIT 5',
+        req.user!.id,
+      ),
+    });
+  });
+  app.use('/api', (_req, _res) => {
+    throw new HttpError(404, 'Nicht gefunden.');
+  });
+  app.use(express.static(resolve('dist/web')));
+  app.use('/assets', (_req, res) => {
+    res.status(404).end();
+  });
+  app.get('/{*path}', (_req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    res.sendFile(resolve('dist/web/index.html'));
+  });
+  const errors: ErrorRequestHandler = (error, _req, res, _next) => {
+    if (res.headersSent) {
+      res.end();
+      return;
+    }
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        error: 'Bitte Eingaben prüfen.',
+        fields: error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      });
+      return;
+    }
+    if (error instanceof HttpError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    if (error?.type === 'entity.parse.failed' || error?.type === 'entity.too.large') {
+      res.status(400).json({ error: 'Ungültiger Anfrageinhalt.' });
+      return;
+    }
+    console.error('Request failed:', error instanceof Error ? error.name : 'UnknownError');
+    res.status(500).json({ error: 'Ein interner Fehler ist aufgetreten.' });
+  };
+  app.use(errors);
+  return { app, ctx, tick: scheduler(ctx, runAgent) };
+}
