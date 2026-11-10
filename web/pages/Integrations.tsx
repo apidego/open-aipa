@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Check, ExternalLink, Plug, ShieldCheck } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Check, ExternalLink, Plug, ShieldCheck, Settings } from 'lucide-react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { DeactivateIntegration } from '../components/DeactivateIntegration';
+import { IntegrationSettings } from '../components/IntegrationSettings';
 interface Integration {
   id: string;
   name: string;
   description: string;
   connected: boolean;
   configured: boolean;
+  enabled: boolean;
 }
 export function Integrations({ user }: { user: User }) {
   const [items, setItems] = useState<Integration[]>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<Integration>();
+  const [deactivate, setDeactivate] = useState<Integration>();
   const [params] = useSearchParams();
   const refresh = () => api<Integration[]>('/integrations').then(setItems);
   useEffect(() => {
@@ -43,72 +48,124 @@ export function Integrations({ user }: { user: User }) {
             <section className="card integration-card" key={item.id}>
               <div className="card-heading">
                 <span className="gmail-logo">M</span>
-                <span className={`badge ${item.connected ? 'connected' : ''}`}>
-                  {item.connected ? (
-                    <>
-                      <Check size={12} />
-                      Verbunden
-                    </>
-                  ) : (
-                    'Nicht verbunden'
-                  )}
-                </span>
+                <div className="integration-card-actions">
+                  <span className={`badge ${item.connected ? 'connected' : ''}`}>
+                    {!item.enabled ? (
+                      'Deaktiviert'
+                    ) : item.connected ? (
+                      <>
+                        <Check size={12} />
+                        Verbunden
+                      </>
+                    ) : (
+                      'Nicht verbunden'
+                    )}
+                  </span>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    aria-label={`${item.name}: Einstellungen`}
+                    title={item.enabled ? 'Einstellungen' : 'Zuerst aktivieren'}
+                    disabled={!item.enabled}
+                    onClick={() => setSelected(item)}
+                  >
+                    <Settings size={18} />
+                  </button>
+                </div>
               </div>
               <h2>{item.name}</h2>
               <p>{item.description}</p>
-              <div className="permission">
-                <ShieldCheck size={16} />
-                <span>Lesender Zugriff · Nur dein persönliches Konto</span>
-              </div>
-              <p className="small">
-                Dein PA kann bei passenden Aufträgen E-Mails lesen und deren Inhalt an OpenAI zur
-                Verarbeitung übertragen.
-              </p>
-              {!item.configured ? (
-                <div className="notice">
-                  {user.role === 'admin' ? (
-                    <Link to="/settings">
-                      Google OAuth in den Einstellungen einrichten
-                      <ExternalLink size={13} />
-                    </Link>
-                  ) : (
-                    'Dein Administrator muss zuerst Google OAuth einrichten.'
-                  )}
-                </div>
-              ) : (
-                <button
-                  className={item.connected ? '' : 'primary'}
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    setError('');
-                    try {
-                      if (item.connected) {
-                        await api(`/integrations/${item.id}`, { method: 'DELETE' });
+              {!item.enabled ? (
+                user.role === 'admin' ? (
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      setError('');
+                      try {
+                        await api(`/integrations/${item.id}/activation`, {
+                          method: 'PUT',
+                          body: JSON.stringify({ enabled: true }),
+                        });
                         await refresh();
-                      } else {
-                        const result = await api(`/integrations/${item.id}/connect`, post({}));
-                        window.location.assign(result.url);
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setBusy(false);
                       }
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  {busy
-                    ? 'Bitte warten …'
-                    : item.connected
-                      ? 'Verbindung entfernen'
-                      : 'Mit Gmail verbinden'}
-                  <Plug size={15} />
-                </button>
+                    }}
+                  >
+                    Aktivieren
+                  </button>
+                ) : (
+                  <p>Ein Administrator muss diese Integration zuerst aktivieren.</p>
+                )
+              ) : (
+                <>
+                  <div className="permission">
+                    <ShieldCheck size={16} />
+                    <span>Lesender Zugriff · Nur dein persönliches Konto</span>
+                  </div>
+                  <p className="small">
+                    Dein PA kann bei passenden Aufträgen E-Mails lesen und deren Inhalt an OpenAI
+                    zur Verarbeitung übertragen.
+                  </p>
+                  {!item.configured ? (
+                    <div className="notice">
+                      {user.role === 'admin' ? (
+                        <button type="button" onClick={() => setSelected(item)}>
+                          Google OAuth einrichten
+                        </button>
+                      ) : (
+                        'Dein Administrator muss zuerst Google OAuth einrichten.'
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      className={item.connected ? '' : 'primary'}
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        setError('');
+                        try {
+                          if (item.connected) {
+                            await api(`/integrations/${item.id}`, { method: 'DELETE' });
+                            await refresh();
+                          } else {
+                            const result = await api(`/integrations/${item.id}/connect`, post({}));
+                            window.location.assign(result.url);
+                          }
+                        } catch (e) {
+                          setError((e as Error).message);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      {busy
+                        ? 'Bitte warten …'
+                        : item.connected
+                          ? 'Verbindung entfernen'
+                          : 'Mit Gmail verbinden'}
+                      <Plug size={15} />
+                    </button>
+                  )}
+                  <small>
+                    Beim Entfernen werden lokale Tokens gelöscht. Den Google-Zugriff kannst du
+                    zusätzlich in deinem Google-Konto widerrufen.
+                  </small>
+                  {user.role === 'admin' && (
+                    <button
+                      className="integration-deactivate"
+                      disabled={busy}
+                      onClick={() => setDeactivate(item)}
+                    >
+                      Deaktivieren
+                    </button>
+                  )}
+                </>
               )}
-              <small>
-                Beim Entfernen werden lokale Tokens gelöscht. Den Google-Zugriff kannst du
-                zusätzlich in deinem Google-Konto widerrufen.
-              </small>
             </section>
           ))}
           <section className="integration-placeholder">
@@ -125,6 +182,22 @@ export function Integrations({ user }: { user: User }) {
             </a>
           </section>
         </div>
+      )}
+      {deactivate && (
+        <DeactivateIntegration
+          id={deactivate.id}
+          name={deactivate.name}
+          onClose={() => setDeactivate(undefined)}
+          onSaved={refresh}
+        />
+      )}
+      {selected && (
+        <IntegrationSettings
+          integration={selected}
+          user={user}
+          onClose={() => setSelected(undefined)}
+          onSaved={refresh}
+        />
       )}
     </>
   );

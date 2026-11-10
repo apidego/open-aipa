@@ -44,6 +44,11 @@ async function setup() {
     .set('Origin', origin)
     .send({ ...account, setupToken: config.setupToken })
     .expect(201);
+  await agent
+    .put('/api/integrations/gmail/activation')
+    .set('Origin', origin)
+    .send({ enabled: true })
+    .expect(200);
   return agent;
 }
 async function member(admin: Awaited<ReturnType<typeof setup>>) {
@@ -298,4 +303,220 @@ it('preserves users, sessions, conversations and secrets across restart', async 
   ).toBeTruthy();
   expect(instance.ctx.store.get('SELECT token FROM sessions')).toBeTruthy();
   expect(instance.ctx.vault.open(encrypted)).toBe(account.apiKey);
+});
+
+describe('integration settings', () => {
+  it('saves Gmail OAuth independently, encrypts secrets and preserves a blank secret', async () => {
+    const admin = await setup();
+    const originalModel = instance.ctx.store.setting('model');
+    const originalPrompt = instance.ctx.store.setting('systemPrompt');
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'test.apps.googleusercontent.com', clientSecret: 'test-only-secret' })
+      .expect(200);
+    const encrypted = instance.ctx.store.setting('googleClientSecret');
+    expect(encrypted).not.toContain('test-only-secret');
+    expect(instance.ctx.vault.open(encrypted)).toBe('test-only-secret');
+    const result = await admin.get('/api/integrations/gmail/settings').expect(200);
+    expect(result.body).toEqual({
+      clientId: 'test.apps.googleusercontent.com',
+      hasClientSecret: true,
+      callbackUrl: origin + '/api/integrations/gmail/callback',
+    });
+    expect(JSON.stringify(result.body)).not.toContain('test-only-secret');
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'changed.apps.googleusercontent.com', clientSecret: '' })
+      .expect(200);
+    expect(instance.ctx.store.setting('googleClientSecret')).toBe(encrypted);
+    expect(instance.ctx.store.setting('model')).toBe(originalModel);
+    expect(instance.ctx.store.setting('systemPrompt')).toBe(originalPrompt);
+    expect((await admin.get('/api/integrations')).body[0].configured).toBe(true);
+    const general = (await admin.get('/api/settings')).body;
+    expect(general).not.toHaveProperty('googleClientId');
+    expect(general).not.toHaveProperty('hasGoogleSecret');
+    await admin
+      .put('/api/settings')
+      .set('Origin', origin)
+      .send({ model: 'another-model', systemPrompt: 'Another prompt', apiKey: '' })
+      .expect(200);
+    expect(instance.ctx.store.setting('googleClientId')).toBe('changed.apps.googleusercontent.com');
+    expect(instance.ctx.store.setting('googleClientSecret')).toBe(encrypted);
+  });
+  it('enforces admin/origin checks and validates integration settings atomically', async () => {
+    const admin = await setup(),
+      user = await member(admin);
+    await request(instance.app).get('/api/integrations/gmail/settings').expect(401);
+    await user.get('/api/integrations/gmail/settings').expect(403);
+    await user
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'wrong' })
+      .expect(403);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', 'https://other.example')
+      .send({ clientId: 'wrong' })
+      .expect(403);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'wrong', clientSecret: 'x'.repeat(501) })
+      .expect(400);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'wrong', model: 'overwrite' })
+      .expect(400);
+    expect(instance.ctx.store.setting('googleClientId')).toBe('');
+    expect(instance.ctx.store.setting('model')).toBe(account.model);
+  });
+  it('reports environment-configured credentials without exposing the secret', async () => {
+    const admin = await setup();
+    config.googleClientId = 'environment-client';
+    config.googleClientSecret = 'environment-secret';
+    const result = await admin.get('/api/integrations/gmail/settings').expect(200);
+    expect(result.body.clientId).toBe('environment-client');
+    expect(result.body.hasClientSecret).toBe(true);
+    expect(JSON.stringify(result.body)).not.toContain('environment-secret');
+  });
+});
+
+describe('integration activation', () => {
+  it('starts inactive, gates all entry points and keeps configuration only on explicit choice', async () => {
+    expect(instance.ctx.store.setting('integration:gmail:enabled')).toBe('false');
+    const admin = await setup();
+    const user = await member(admin);
+    const id = (await admin.get('/api/session')).body.user.id;
+    instance.ctx.store.set('googleClientId', 'demo-id');
+    instance.ctx.store.set('googleClientSecret', instance.ctx.vault.seal('demo-secret'));
+    instance.ctx.store.run('INSERT INTO connections VALUES(?,?,?)', id, 'gmail', 'sealed');
+    const before = instance.ctx.store.setting('googleClientSecret');
+    await user
+      .put('/api/integrations/gmail/activation')
+      .set('Origin', origin)
+      .send({ enabled: false, keepConfiguration: false })
+      .expect(403);
+    await admin
+      .put('/api/integrations/gmail/activation')
+      .set('Origin', origin)
+      .send({ enabled: false })
+      .expect(400);
+    await admin
+      .put('/api/integrations/gmail/activation')
+      .send({ enabled: false, keepConfiguration: true })
+      .expect(403);
+    await admin
+      .put('/api/integrations/gmail/activation')
+      .set('Origin', origin)
+      .send({ enabled: false, keepConfiguration: true })
+      .expect(200);
+    expect(instance.ctx.store.setting('googleClientSecret')).toBe(before);
+    await admin.get('/api/integrations/gmail/settings').expect(409);
+    await admin
+      .put('/api/integrations/gmail/settings')
+      .set('Origin', origin)
+      .send({ clientId: 'replacement' })
+      .expect(409);
+    await admin.post('/api/integrations/gmail/connect').set('Origin', origin).expect(409);
+    await admin.get('/api/integrations/gmail/callback?state=x&code=x').expect(409);
+    const { connectedIntegrations } = await import('../server/integrations/registry.js');
+    const { gmail } = await import('../server/integrations/gmail.js');
+    expect(connectedIntegrations(instance.ctx, id)).toEqual([]);
+    await expect(gmail.execute(instance.ctx, id, 'gmail_search', { query: 'x' })).rejects.toThrow(
+      'aktivieren',
+    );
+    await admin
+      .put('/api/integrations/gmail/activation')
+      .set('Origin', origin)
+      .send({ enabled: true })
+      .expect(200);
+    expect(connectedIntegrations(instance.ctx, id).map((i) => i.id)).toEqual(['gmail']);
+    expect((await admin.get('/api/integrations')).body[0]).toMatchObject({
+      enabled: true,
+      configured: true,
+      connected: true,
+    });
+  });
+  it('deletes credentials and all connections and does not revive environment configuration', async () => {
+    const admin = await setup();
+    const user = await member(admin);
+    config.googleClientId = 'env-id';
+    config.googleClientSecret = 'env-secret';
+    for (const session of [admin, user]) {
+      const id = (await session.get('/api/session')).body.user.id;
+      instance.ctx.store.run('INSERT INTO connections VALUES(?,?,?)', id, 'gmail', 'sealed');
+    }
+    instance.ctx.store.set('googleClientId', 'stored-id');
+    instance.ctx.store.set('googleClientSecret', instance.ctx.vault.seal('stored-secret'));
+    await admin
+      .put('/api/integrations/gmail/activation')
+      .set('Origin', origin)
+      .send({ enabled: false, keepConfiguration: false })
+      .expect(200);
+    expect(instance.ctx.store.all('SELECT * FROM connections')).toEqual([]);
+    expect(instance.ctx.store.setting('googleClientId')).toBe('');
+    expect(instance.ctx.store.setting('googleClientSecret')).toBe('');
+    const { initializeIntegrations } = await import('../server/integrations/routes.js');
+    initializeIntegrations(instance.ctx);
+    expect(instance.ctx.store.setting('integration:gmail:enabled')).toBe('false');
+    await admin
+      .put('/api/integrations/gmail/activation')
+      .set('Origin', origin)
+      .send({ enabled: true })
+      .expect(200);
+    expect((await admin.get('/api/integrations/gmail/settings')).body).toMatchObject({
+      clientId: '',
+      hasClientSecret: false,
+    });
+    expect((await admin.get('/api/integrations')).body[0].configured).toBe(false);
+  });
+  it('initializes existing installations once and preserves their credentials', async () => {
+    const { initializeIntegrations } = await import('../server/integrations/routes.js');
+    instance.ctx.store.run("DELETE FROM settings WHERE key='integration:gmail:enabled'");
+    config.googleClientId = 'existing-id';
+    config.googleClientSecret = 'existing-secret';
+    initializeIntegrations(instance.ctx);
+    expect(instance.ctx.store.setting('integration:gmail:enabled')).toBe('true');
+    instance.ctx.store.set('integration:gmail:enabled', 'false');
+    initializeIntegrations(instance.ctx);
+    expect(instance.ctx.store.setting('integration:gmail:enabled')).toBe('false');
+  });
+});
+
+it('does not restore a Gmail connection when an old OAuth exchange completes after deactivate/reactivate', async () => {
+  const { OAuth2Client } = await import('google-auth-library');
+  const { gmail } = await import('../server/integrations/gmail.js');
+  const admin = await setup();
+  instance.ctx.store.set('googleClientId', 'test-id');
+  instance.ctx.store.set('googleClientSecret', instance.ctx.vault.seal('test-secret'));
+  const begin = await admin
+    .post('/api/integrations/gmail/connect')
+    .set('Origin', origin)
+    .expect(200);
+  const state = new URL(begin.body.url).searchParams.get('state');
+  const exchange = vi.spyOn(OAuth2Client.prototype, 'getToken').mockImplementation(async () => {
+    instance.ctx.store.set('integration:gmail:enabled', 'false');
+    gmail.deactivate!(instance.ctx);
+    gmail.clearConfiguration(instance.ctx);
+    instance.ctx.store.set('integration:gmail:enabled', 'true');
+    return {
+      tokens: {
+        access_token: 'old-access',
+        refresh_token: 'old-refresh',
+        scope: 'https://www.googleapis.com/auth/gmail.readonly',
+      },
+      res: null,
+    } as never;
+  });
+  try {
+    await admin
+      .get(`/api/integrations/gmail/callback?state=${state}&code=test`)
+      .expect('Location', '/integrations?error=oauth_changed');
+    expect(instance.ctx.store.all('SELECT * FROM connections')).toEqual([]);
+  } finally {
+    exchange.mockRestore();
+  }
 });
