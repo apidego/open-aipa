@@ -5,5 +5,7 @@ export interface Integration {
   name: string;
   description: string;
   tools: FunctionTool[];
+  // Explicit read-only capabilities exposed to generated scripts.
+  scriptTools?: readonly string[];
   execute(ctx: Context, userId: string, name: string, args: unknown): Promise<unknown>;
 }

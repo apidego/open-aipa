@@ -12,10 +12,14 @@ import { authRoutes } from './modules/auth.js';
 import { settingsRoutes } from './modules/settings.js';
 import { agentRunner, type RunAgent } from './modules/agent.js';
 import { conversationRoutes } from './modules/conversations.js';
-import { automationRoutes, scheduler } from './modules/automations.js';
+import { scheduler } from './modules/jobs/scheduler.js';
+import { jobRoutes } from './modules/jobs/routes.js';
+import { jobPlanner } from './modules/jobs/planner.js';
+import { notificationRoutes } from './modules/jobs/notifications.js';
+import type { PlanJob } from './modules/jobs/types.js';
 import { gmailRoutes } from './integrations/gmail.js';
 import { integrations } from './integrations/registry.js';
-export function createApp(config: Config, overrideAgent?: RunAgent) {
+export function createApp(config: Config, overrideAgent?: RunAgent, overridePlanner?: PlanJob) {
   const store = new Store(config.dataDir);
   const ctx = { store, config, vault: new Vault(config.encryptionKey) };
   const app = express();
@@ -70,7 +74,10 @@ export function createApp(config: Config, overrideAgent?: RunAgent) {
   app.use('/api/settings', settingsRoutes(ctx));
   const runAgent = overrideAgent || agentRunner(ctx);
   app.use('/api/conversations', conversationRoutes(ctx, runAgent));
-  app.use('/api/automations', automationRoutes(ctx));
+  const planJob = overridePlanner || jobPlanner(ctx);
+  app.use('/api/automations', jobRoutes(ctx, 'automation', planJob));
+  app.use('/api/tasks', jobRoutes(ctx, 'task', planJob));
+  app.use('/api/notifications', notificationRoutes(ctx));
   app.get('/api/integrations', (req, res) => {
     const connected = store.all<{ provider: string }>(
       'SELECT provider FROM connections WHERE user_id=?',
@@ -96,14 +103,21 @@ export function createApp(config: Config, overrideAgent?: RunAgent) {
     res.json({
       conversations: count('conversations'),
       integrations: count('connections'),
-      automations: count('automations'),
+      automations: store.get<{ n: number }>(
+        "SELECT COUNT(*) n FROM jobs WHERE user_id=? AND kind='automation'",
+        req.user!.id,
+      )!.n,
+      tasks: store.get<{ n: number }>(
+        "SELECT COUNT(*) n FROM jobs WHERE user_id=? AND kind='task'",
+        req.user!.id,
+      )!.n,
       model: store.setting('model'),
       recent: store.all(
         'SELECT id,title,created_at FROM conversations WHERE user_id=? ORDER BY created_at DESC LIMIT 5',
         req.user!.id,
       ),
       runs: store.all(
-        'SELECT r.id,r.status,r.created_at,a.name,a.id automation_id FROM runs r JOIN automations a ON a.id=r.automation_id WHERE a.user_id=? ORDER BY r.created_at DESC LIMIT 5',
+        'SELECT r.id,r.status,r.created_at,a.name,a.id job_id,a.kind FROM job_runs r JOIN jobs a ON a.id=r.job_id WHERE a.user_id=? ORDER BY r.created_at DESC LIMIT 5',
         req.user!.id,
       ),
     });

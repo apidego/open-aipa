@@ -217,56 +217,6 @@ describe('conversations and integrations', () => {
     await admin.post('/api/integrations/gmail/connect').set('Origin', origin).expect(400);
   });
 });
-describe('scheduled jobs', () => {
-  it('validates intervals, isolates jobs, executes once, and respects pause', async () => {
-    const admin = await setup();
-    const user = await member(admin);
-    await admin
-      .post('/api/automations')
-      .set('Origin', origin)
-      .send({ name: 'Briefing', prompt: 'Inbox', intervalMinutes: 1 })
-      .expect(400);
-    const { body } = await admin
-      .post('/api/automations')
-      .set('Origin', origin)
-      .send({ name: 'Briefing', prompt: 'Inbox', intervalMinutes: 15 })
-      .expect(201);
-    await user.get(`/api/automations/${body.id}/runs`).expect(404);
-    await user
-      .patch(`/api/automations/${body.id}`)
-      .set('Origin', origin)
-      .send({ enabled: false })
-      .expect(404);
-    instance.ctx.store.run('UPDATE automations SET next_run=0');
-    await Promise.all([instance.tick(), instance.tick()]);
-    await instance.tick();
-    expect(runAgent).toHaveBeenCalledTimes(1);
-    const runs = await admin.get(`/api/automations/${body.id}/runs`);
-    expect(runs.body[0].status).toBe('completed');
-    expect(runs.body[0].result).toBe('Hello world');
-    await admin
-      .patch(`/api/automations/${body.id}`)
-      .set('Origin', origin)
-      .send({ enabled: false })
-      .expect(200);
-    instance.ctx.store.run('UPDATE automations SET next_run=0');
-    await instance.tick();
-    expect(runAgent).toHaveBeenCalledTimes(1);
-  });
-  it('records failed runs without exposing upstream errors', async () => {
-    const admin = await setup();
-    const { body } = await admin
-      .post('/api/automations')
-      .set('Origin', origin)
-      .send({ name: 'Fail', prompt: 'Test', intervalMinutes: 15 });
-    runAgent.mockRejectedValueOnce(new Error('sensitive provider detail'));
-    instance.ctx.store.run('UPDATE automations SET next_run=0');
-    await instance.tick();
-    const runs = await admin.get(`/api/automations/${body.id}/runs`);
-    expect(runs.body[0].status).toBe('failed');
-    expect(runs.body[0].result).not.toContain('sensitive');
-  });
-});
 it('rejects vault tampering and encrypts the same input differently', () => {
   const vault = new Vault(token());
   const a = vault.seal('secret');

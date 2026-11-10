@@ -1,15 +1,32 @@
 import { useEffect, useState } from 'react';
-import { MessageSquare, Plug, Workflow, ArrowUpRight, ArrowRight, Clock3 } from 'lucide-react';
+import {
+  MessageSquare,
+  Plug,
+  Workflow,
+  ListTodo,
+  ArrowUpRight,
+  ArrowRight,
+  Clock3,
+} from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, post, date, type User, type Conversation } from '../api';
 import { Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { Notifications } from '../components/Notifications';
 interface DashboardData {
   conversations: number;
   integrations: number;
   automations: number;
+  tasks: number;
   model: string;
   recent: Conversation[];
-  runs: { id: string; status: string; created_at: number; name: string; automation_id: string }[];
+  runs: {
+    id: string;
+    status: string;
+    created_at: number;
+    name: string;
+    job_id: string;
+    kind: string;
+  }[];
 }
 export function Dashboard({ user }: { user: User }) {
   const [data, setData] = useState<DashboardData>();
@@ -66,6 +83,13 @@ export function Dashboard({ user }: { user: User }) {
             text: 'Wiederkehrende Aufgaben im Griff',
             to: '/automations',
           },
+          {
+            label: 'Aufgaben',
+            value: data.tasks,
+            icon: ListTodo,
+            text: 'Geplante KI-Aufträge',
+            to: '/tasks',
+          },
         ].map((item) => (
           <Link to={item.to} className="stat card" key={item.label}>
             <div>
@@ -77,6 +101,7 @@ export function Dashboard({ user }: { user: User }) {
           </Link>
         ))}
       </div>
+      <Notifications />
       <div className="dashboard-grid">
         <section className="card assistant-card">
           <span className="badge">
@@ -152,7 +177,11 @@ export function Dashboard({ user }: { user: User }) {
           </div>
           {data.runs.length ? (
             data.runs.map((run) => (
-              <Link className="list-row" to="/automations" key={run.id}>
+              <Link
+                className="list-row"
+                to={run.kind === 'task' ? '/tasks' : '/automations'}
+                key={run.id}
+              >
                 <span className={`run-dot ${run.status}`} />
                 <div>
                   <strong>{run.name}</strong>

@@ -60,6 +60,7 @@ function textParts(part?: MailPart): string {
 }
 export const gmail: Integration = {
   id: 'gmail',
+  scriptTools: ['gmail_search', 'gmail_read'],
   name: 'Gmail',
   description: 'E-Mails durchsuchen, lesen und zusammenfassen.',
   tools: [

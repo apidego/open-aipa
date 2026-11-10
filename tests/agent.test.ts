@@ -109,3 +109,24 @@ it('fails incomplete streams rather than persisting a partial response', async (
   );
   await expect(agentRunner(ctx)('u1', [])).rejects.toThrow('incomplete');
 });
+it('requests structured task outcomes and fails task integration errors instead of silently skipping', async () => {
+  create.mockResolvedValueOnce(events([], '{"notify":false,"title":"","message":"Kein Treffer"}'));
+  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Prüfe später' }], undefined, {
+    task: true,
+  });
+  expect(create.mock.calls[0][0].text.format).toMatchObject({
+    type: 'json_schema',
+    name: 'task_outcome',
+    strict: true,
+  });
+  ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'encrypted');
+  vi.spyOn(gmail, 'execute').mockRejectedValue(new Error('private provider error'));
+  create.mockResolvedValueOnce(
+    events([
+      { type: 'function_call', call_id: 'c', name: 'gmail_search', arguments: '{"query":"x"}' },
+    ]),
+  );
+  await expect(agentRunner(ctx)('u1', [], undefined, { task: true })).rejects.toThrow(
+    'Task integration failed',
+  );
+});

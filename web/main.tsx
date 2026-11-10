@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Plug,
   Workflow,
+  ListTodo,
   Settings as SettingsIcon,
   Users as UsersIcon,
   PanelLeftClose,
@@ -20,7 +21,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Conversations } from './pages/Conversations';
 import { ConversationOverview } from './pages/ConversationOverview';
 import { Integrations } from './pages/Integrations';
-import { Automations } from './pages/Automations';
+import { ScheduledJobs } from './pages/ScheduledJobs';
 import { Settings } from './pages/Settings';
 import { Users } from './pages/Users';
 import './style.css';
@@ -69,6 +70,7 @@ function App() {
     { to: '/conversations', label: 'Konversationen', icon: MessageSquare },
     { to: '/integrations', label: 'Integrationen', icon: Plug },
     { to: '/automations', label: 'Automatisierungen', icon: Workflow },
+    { to: '/tasks', label: 'Aufgaben', icon: ListTodo },
   ];
   const title =
     [...links, { to: '/settings', label: 'Einstellungen' }, { to: '/users', label: 'Nutzer' }].find(
@@ -179,7 +181,11 @@ function App() {
             <Route path="/conversations" element={<ConversationOverview />} />
             <Route path="/conversations/:id" element={<Conversations />} />
             <Route path="/integrations" element={<Integrations user={user} />} />
-            <Route path="/automations" element={<Automations />} />
+            <Route
+              path="/automations"
+              element={<ScheduledJobs key="automations" kind="automation" />}
+            />
+            <Route path="/tasks" element={<ScheduledJobs key="tasks" kind="task" />} />
             <Route path="/settings" element={<Settings user={user} />} />
             <Route
               path="/users"
