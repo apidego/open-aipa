@@ -20,7 +20,7 @@ export function availableChannels(ctx: Context, userId: string) {
 export function deliver(ctx: Context, job: Job, runId: string, outcome: Outcome) {
   if (!outcome.notify) return;
   if (!outcome.message.trim()) throw new Error('Empty notification');
-  if (job.channel === 'discord') {
+  if (job.channel === 'discord' || job.channel === 'dashboard_discord') {
     const target = ctx.store.get<{ link_id: string; channel_id: string }>(
       'SELECT * FROM job_discord_targets WHERE job_id=?',
       job.id,
@@ -42,9 +42,10 @@ export function deliver(ctx: Context, job: Job, runId: string, outcome: Outcome)
         : 'Discord-Verknüpfung fehlt oder wurde geändert. Aufgabe pausieren und erneut freigeben.',
       Date.now(),
     );
-    return;
+    if (job.channel === 'discord') return;
   }
-  if (job.channel !== 'dashboard') throw new Error('Delivery channel unavailable');
+  if (job.channel !== 'dashboard' && job.channel !== 'dashboard_discord')
+    throw new Error('Delivery channel unavailable');
   ctx.store.run(
     'INSERT INTO notifications(id,user_id,job_id,run_id,title,message,channel,created_at) VALUES(?,?,?,?,?,?,?,?)',
     randomUUID(),
@@ -53,7 +54,7 @@ export function deliver(ctx: Context, job: Job, runId: string, outcome: Outcome)
     runId,
     outcome.title || job.name,
     outcome.message,
-    job.channel,
+    'dashboard',
     Date.now(),
   );
 }

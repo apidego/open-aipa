@@ -61,6 +61,13 @@ it('generates structured plans with configured model, time context, script contr
   expect(parse.mock.calls[0][0].instructions).toContain('AI permission: false');
   expect(parse.mock.calls[0][0].instructions).toContain('User timezone: Europe/Berlin');
   expect(parse.mock.calls[0][0].tools).toBeUndefined();
+  expect(parse.mock.calls[0][0].instructions).toContain('Set channel="all" by default');
+  expect(parse.mock.calls[0][0].instructions).toContain(
+    '"nur Discord" / "über Discord" means channel="discord"',
+  );
+  expect(parse.mock.calls[0][0].instructions).toContain(
+    '"nur Dashboard" means channel="dashboard"',
+  );
 });
 it('does not accept refused or incomplete plans', async () => {
   parse.mockResolvedValueOnce({ status: 'completed', output_parsed: null });
