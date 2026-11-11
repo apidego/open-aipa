@@ -76,6 +76,16 @@ export class Store {
         );
       });
     }
+    if (!this.get('SELECT version FROM migrations WHERE version=5')) {
+      this.transaction(() =>
+        this.db.exec(`
+        CREATE TABLE job_discord_targets (job_id TEXT PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE, link_id TEXT NOT NULL, discord_user_id TEXT NOT NULL, channel_id TEXT NOT NULL);
+        CREATE TABLE discord_deliveries (run_id TEXT PRIMARY KEY REFERENCES job_runs(id) ON DELETE CASCADE, link_id TEXT NOT NULL, channel_id TEXT NOT NULL, generation TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('pending','sending','sent','failed')), error TEXT, created_at INTEGER NOT NULL);
+        CREATE INDEX discord_delivery_pending ON discord_deliveries(status,created_at);
+        INSERT INTO migrations(version) VALUES(5);
+      `),
+      );
+    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
     return this.db.prepare(sql).run(...params);

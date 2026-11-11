@@ -111,3 +111,9 @@
     gap: 2px;
   }
 }
+
+.job-facts dd small {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}

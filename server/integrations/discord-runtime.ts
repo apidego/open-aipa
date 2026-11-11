@@ -1,3 +1,4 @@
+import { discordDelivery } from './discord-delivery.js';
 import { syncBotProfile } from '../modules/bot-profile.js';
 import { Client, Events, GatewayIntentBits, Partials, ChannelType } from 'discord.js';
 import { conversationContext, type PrepareContext } from '../modules/conversation-context.js';
@@ -20,7 +21,7 @@ export const discordTransport: DiscordTransportFactory = (receive) => {
     intents: [GatewayIntentBits.DirectMessages],
     partials: [Partials.Channel],
     allowedMentions: { parse: [], repliedUser: false },
-    rest: { timeout: 15000, retries: 1 },
+    rest: { timeout: 15000, retries: 0 },
   });
   // Never log SDK errors: they may include request/credential data.
   client.on(Events.Error, () => {});
@@ -67,9 +68,20 @@ export function discordRuntime(
     integrationEnabled(ctx, 'discord') && ctx.store.setting('discordBotToken')
       ? ctx.store.setting('discordBotToken') + ':' + ctx.store.setting('discordGeneration')
       : '';
+  const drain = discordDelivery(
+    ctx,
+    async (channel, content, allowed) => {
+      const active = transport;
+      if (!active || !active.ready()) throw new Error('Discord unavailable');
+      await active.send(channel, content, () => transport === active && !!allowed?.());
+      if (transport !== active) throw new Error('Discord changed');
+    },
+    () => !stopped && !!transport?.ready() && desired() === current,
+  );
   async function sync() {
     if (stopped) return;
     void syncBotProfile(ctx).catch(() => {});
+    void drain().catch(() => {});
     const key = desired();
     if (key === current && (transport || transitioning || !key || Date.now() < retryAt)) return;
     const revision = ++epoch,
@@ -143,6 +155,7 @@ export function discordRuntime(
       transport = undefined;
       state = 'offline';
       await old?.destroy();
+      await drain.idle();
     },
     sync,
     status(): DiscordStatus {

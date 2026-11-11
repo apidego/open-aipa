@@ -68,3 +68,19 @@ it('does not accept refused or incomplete plans', async () => {
   parse.mockResolvedValueOnce({ status: 'incomplete', output_parsed: {} });
   await expect(jobPlanner(ctx)('u', 'task', 'Test', 'UTC', false)).rejects.toThrow('Entwurf');
 });
+it('offers Discord only for this owner when configured, enabled and linked', async () => {
+  parse.mockResolvedValue({ status: 'completed', output_parsed: { clarification: 'Wann?' } });
+  const plan = () => jobPlanner(ctx)('u', 'task', 'Melde dich über Discord', 'UTC', false);
+  await plan();
+  expect(parse.mock.lastCall![0].instructions).toContain('channels for this user: dashboard.');
+  ctx.store.set('integration:discord:enabled', 'true');
+  ctx.store.set('discordBotToken', ctx.vault.seal('fake'));
+  ctx.store.run("INSERT INTO discord_links VALUES('link','u','111','222',NULL)");
+  await plan();
+  expect(parse.mock.lastCall![0].instructions).toContain(
+    'channels for this user: dashboard, discord.',
+  );
+  ctx.store.set('integration:discord:enabled', 'false');
+  await plan();
+  expect(parse.mock.lastCall![0].instructions).toContain('channels for this user: dashboard.');
+});

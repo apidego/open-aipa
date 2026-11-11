@@ -2,14 +2,49 @@ import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { Context } from '../../core/context.js';
 import { HttpError } from '../../core/http.js';
+import { integrationEnabled } from '../../integrations/state.js';
 import type { Job, Outcome } from './types.js';
 // Explicit dispatch boundary: future providers must implement delivery here.
 // A requested external channel must never silently fall back to dashboard.
-export const notificationChannels = ['dashboard'] as const;
+export function discordLink(ctx: Context, userId: string) {
+  if (!integrationEnabled(ctx, 'discord') || !ctx.store.setting('discordBotToken'))
+    return undefined;
+  return ctx.store.get<{ id: string; discord_user_id: string; channel_id: string }>(
+    'SELECT id,discord_user_id,channel_id FROM discord_links WHERE user_id=?',
+    userId,
+  );
+}
+export function availableChannels(ctx: Context, userId: string) {
+  return discordLink(ctx, userId) ? ['dashboard', 'discord'] : ['dashboard'];
+}
 export function deliver(ctx: Context, job: Job, runId: string, outcome: Outcome) {
   if (!outcome.notify) return;
-  if (job.channel !== 'dashboard') throw new Error('Delivery channel unavailable');
   if (!outcome.message.trim()) throw new Error('Empty notification');
+  if (job.channel === 'discord') {
+    const target = ctx.store.get<{ link_id: string; channel_id: string }>(
+      'SELECT * FROM job_discord_targets WHERE job_id=?',
+      job.id,
+    );
+    const link = discordLink(ctx, job.user_id);
+    const valid =
+      target && link && target.link_id === link.id && target.channel_id === link.channel_id;
+    ctx.store.run(
+      'INSERT INTO discord_deliveries(run_id,link_id,channel_id,generation,title,message,status,error,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
+      runId,
+      target?.link_id || '',
+      target?.channel_id || '',
+      ctx.store.setting('discordGeneration'),
+      outcome.title || job.name,
+      outcome.message,
+      valid ? 'pending' : 'failed',
+      valid
+        ? null
+        : 'Discord-Verknüpfung fehlt oder wurde geändert. Aufgabe pausieren und erneut freigeben.',
+      Date.now(),
+    );
+    return;
+  }
+  if (job.channel !== 'dashboard') throw new Error('Delivery channel unavailable');
   ctx.store.run(
     'INSERT INTO notifications(id,user_id,job_id,run_id,title,message,channel,created_at) VALUES(?,?,?,?,?,?,?,?)',
     randomUUID(),
