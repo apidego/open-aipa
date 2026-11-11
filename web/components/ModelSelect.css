@@ -1,0 +1,71 @@
+.model-select {
+  position: relative;
+}
+.model-select > label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.model-select-input {
+  position: relative;
+}
+.model-select-input input {
+  padding-right: 38px;
+}
+.model-select-input button {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  bottom: 3px;
+  border: 0;
+  background: transparent;
+  padding: 0 8px;
+  color: var(--muted);
+}
+.model-select-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 8px 24px #00000012;
+  overflow: hidden;
+}
+.model-select-menu ul {
+  list-style: none;
+  padding: 4px;
+  margin: 0;
+  max-height: 224px;
+  overflow-y: auto;
+}
+.model-select-menu li {
+  padding: 9px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.model-select-menu li:hover,
+.model-select-menu li.active,
+.model-select-menu li[aria-selected='true'] {
+  background: #f3f5ef;
+}
+.model-select-menu p {
+  font-size: 12px;
+  margin: 12px;
+}
+.model-catalog-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.model-catalog-status small {
+  flex: 1;
+  min-width: 180px;
+}
