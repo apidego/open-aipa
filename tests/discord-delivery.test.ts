@@ -138,6 +138,7 @@ it('queues atomically, sends once to the bound DM and never creates a dashboard 
   await drain();
   expect(send).toHaveBeenCalledTimes(1);
   expect(send.mock.calls[0][0]).toBe('222222222222222222');
+  expect(send.mock.calls[0][1]).toBe('Ein Termin steht an.');
   expect(send.mock.calls[0][2]!()).toBe(true);
   expect(delivery()?.status).toBe('sent');
   expect((await a.get('/api/tasks/' + job.id + '/runs')).body[0]).toMatchObject({
@@ -446,3 +447,24 @@ it('bounds and paginates notification history', () => {
   expect(first.items[0].message.length).toBeLessThan(10000);
   expect(notificationHistory(app.ctx, uid, { ...query, offset: 10 }).items).toHaveLength(2);
 });
+
+it.each([
+  ['Nachricht', 'hallo'],
+  ['Wäsche waschen', 'Denk dran, deine Wäsche zu waschen.'],
+  ['Langer Bericht', 'x'.repeat(4000)],
+])(
+  'delivers only the message body for %s, preserving wording and chunks',
+  async (title, message) => {
+    run.mockResolvedValue(JSON.stringify({ notify: true, title, message }));
+    const job = await draft();
+    await activate(job.id);
+    await app.tick();
+    await discordDelivery(app.ctx, send, () => true)();
+    expect(send.mock.calls.map((call) => call[1]).join('')).toBe(message);
+    expect(send.mock.calls.every((call) => call[1].length <= 1900)).toBe(true);
+    expect(delivery()?.status).toBe('sent');
+    expect(
+      app.ctx.store.get<{ title: string }>('SELECT title FROM discord_deliveries')?.title,
+    ).toBe(title);
+  },
+);
