@@ -71,7 +71,7 @@ export function scheduler(ctx: Context, runAgent: RunAgent) {
             store.run(
               "UPDATE job_runs SET status='completed',result=?,notified=?,finished_at=? WHERE id=?",
               outcome.message,
-              Number(outcome.notify && job.channel === 'dashboard'),
+              Number(outcome.notify && ['dashboard', 'dashboard_discord'].includes(job.channel)),
               Date.now(),
               runId,
             );

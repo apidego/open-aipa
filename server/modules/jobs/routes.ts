@@ -93,7 +93,16 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
       const name = z.string().trim().min(1).max(100).parse(plan.name);
       const description = z.string().trim().min(1).max(2000).parse(plan.description);
       const prompt = z.string().trim().min(1).max(16000).parse(plan.prompt);
-      if (!availableChannels(ctx, req.user!.id).includes(plan.channel))
+      const channels = availableChannels(ctx, req.user!.id);
+      // Snapshot the available destinations into the reviewed draft. Later connections
+      // must not silently add recipients to an already approved job.
+      const channel =
+        plan.channel === 'all'
+          ? channels.includes('discord')
+            ? 'dashboard_discord'
+            : 'dashboard'
+          : plan.channel;
+      if (plan.channel !== 'all' && !channels.includes(channel))
         throw new HttpError(
           400,
           'Der gewünschte Benachrichtigungskanal ist noch nicht verbunden. Eine Umleitung ins Dashboard erfolgt nicht.',
@@ -123,7 +132,7 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
           prompt,
           kind === 'automation' ? plan.script : null,
           JSON.stringify(plan.schedule),
-          plan.channel,
+          channel,
           Number(kind === 'automation' && data.allowAI),
           Date.now(),
         );
@@ -179,7 +188,7 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
       throw new HttpError(409, 'Eine Ausführung läuft noch.');
     const next =
       status === 'active' ? nextRun(JSON.parse(job.schedule), Date.now(), true) : job.next_run;
-    if (status === 'active' && job.channel === 'discord') {
+    if (status === 'active' && ['discord', 'dashboard_discord'].includes(job.channel)) {
       const link = discordLink(ctx, req.user!.id);
       if (!link) throw new HttpError(409, 'Bitte Discord aktivieren und dein Konto verknüpfen.');
       if (!approveDiscord || discordBindingId !== link.id)

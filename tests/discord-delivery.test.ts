@@ -9,6 +9,7 @@ import { discordDelivery } from '../server/integrations/discord-delivery.js';
 import { discordRuntime } from '../server/integrations/discord-runtime.js';
 import type { Plan } from '../server/modules/jobs/types.js';
 const origin = 'http://localhost:3000';
+let plannedChannel = 'discord';
 const plan: Plan = {
   clarification: null,
   name: 'Terminprüfung',
@@ -24,6 +25,7 @@ const run = vi.fn(async () =>
 );
 const send = vi.fn(async (_channel: string, _content: string, _allowed?: () => boolean) => {});
 beforeEach(async () => {
+  plannedChannel = 'discord';
   run
     .mockReset()
     .mockResolvedValue(
@@ -40,7 +42,7 @@ beforeEach(async () => {
       googleClientSecret: '',
     },
     run,
-    async () => plan,
+    async () => ({ ...plan, channel: plannedChannel }),
   );
   a = request.agent(app.app);
   await a
@@ -296,4 +298,67 @@ it('migrates existing jobs and preserves pending deliveries across database reop
   expect(delivery()?.status).toBe('pending');
   await discordDelivery(app.ctx, send, () => true)();
   expect(delivery()?.status).toBe('sent');
+});
+
+it('defaults to both destinations, requires approval, and delivers one notification per channel', async () => {
+  plannedChannel = 'all';
+  const job = await draft();
+  expect(job.channel).toBe('dashboard_discord');
+  await a
+    .patch('/api/tasks/' + job.id)
+    .set('Origin', origin)
+    .send({ status: 'active' })
+    .expect(409);
+  await activate(job.id);
+  await app.tick();
+  const notifications = (await a.get('/api/notifications')).body.items;
+  expect(notifications).toHaveLength(1);
+  expect(notifications[0]).toMatchObject({
+    user_id: uid,
+    channel: 'dashboard',
+    message: 'Ein Termin steht an.',
+  });
+  expect(delivery()?.status).toBe('pending');
+  await discordDelivery(app.ctx, send, () => true)();
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(delivery()?.status).toBe('sent');
+});
+it('snapshots dashboard alone when Discord is unavailable and preserves explicit dashboard requests', async () => {
+  plannedChannel = 'dashboard';
+  expect((await draft()).channel).toBe('dashboard');
+  plannedChannel = 'all';
+  app.ctx.store.set('integration:discord:enabled', 'false');
+  const job = await draft();
+  expect(job.channel).toBe('dashboard');
+  app.ctx.store.set('integration:discord:enabled', 'true');
+  await a
+    .patch('/api/tasks/' + job.id)
+    .set('Origin', origin)
+    .send({ status: 'active' })
+    .expect(200);
+  app.ctx.store.run('UPDATE jobs SET next_run=0 WHERE id=?', job.id);
+  await app.tick();
+  expect((await a.get('/api/notifications')).body.items).toHaveLength(1);
+  expect(delivery()).toBeUndefined();
+});
+it('keeps the approved dashboard delivery if Discord is disconnected after activation', async () => {
+  plannedChannel = 'all';
+  const job = await draft();
+  await activate(job.id);
+  app.ctx.store.run('DELETE FROM discord_links');
+  await app.tick();
+  expect(delivery()?.status).toBe('failed');
+  expect((await a.get('/api/notifications')).body.items).toHaveLength(1);
+  expect((await a.get('/api/tasks/' + job.id + '/runs')).body[0].notified).toBe(1);
+  await discordDelivery(app.ctx, send, () => true)();
+  expect(send).not.toHaveBeenCalled();
+});
+it('suppresses both default channels when the condition is false', async () => {
+  plannedChannel = 'all';
+  run.mockResolvedValue(JSON.stringify({ notify: false, title: '', message: 'Kein Treffer.' }));
+  const job = await draft();
+  await activate(job.id);
+  await app.tick();
+  expect(delivery()).toBeUndefined();
+  expect((await a.get('/api/notifications')).body.items).toEqual([]);
 });
