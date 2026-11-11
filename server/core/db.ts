@@ -69,6 +69,13 @@ export class Store {
         `);
       });
     }
+    if (!this.get('SELECT version FROM migrations WHERE version=4')) {
+      this.transaction(() => {
+        this.db.exec(
+          `CREATE TABLE conversation_context (conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE, through_id INTEGER NOT NULL, summary TEXT NOT NULL, partial INTEGER NOT NULL DEFAULT 0, retry_after INTEGER NOT NULL DEFAULT 0); INSERT INTO migrations(version) VALUES(4);`,
+        );
+      });
+    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
     return this.db.prepare(sql).run(...params);

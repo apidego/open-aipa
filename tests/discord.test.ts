@@ -148,6 +148,7 @@ it('suppresses in-flight persistence and replies after disconnect or deactivatio
       }),
   );
   const pending = handle(msg('private'));
+  await Promise.resolve();
   await handle(msg('!trennen'));
   send.mockClear();
   finish('private answer');
@@ -157,6 +158,7 @@ it('suppresses in-flight persistence and replies after disconnect or deactivatio
   app.ctx.store.run('DELETE FROM discord_pairings');
   await handle(msg('!verbinden ' + pair()));
   const next = handle(msg('private again'));
+  await Promise.resolve();
   app.ctx.store.set('integration:discord:enabled', 'false');
   discord.deactivate!(app.ctx);
   send.mockClear();
@@ -175,6 +177,7 @@ it('serializes turns and shares dashboard locks; failed AI does not persist an e
       }),
   );
   const pending = handle(msg());
+  await Promise.resolve();
   await handle(msg('second'));
   expect(run).toHaveBeenCalledTimes(1);
   const conversation = app.ctx.store.get<{ id: string }>('SELECT id FROM conversations')!.id;
@@ -393,6 +396,7 @@ it('aborts agent work when the personal binding is revoked', async () => {
         }),
     );
     const pending = handle(msg('work'));
+    await Promise.resolve();
     await handle(msg('!trennen'));
     await vi.advanceTimersByTimeAsync(300);
     await pending;

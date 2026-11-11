@@ -1,4 +1,5 @@
 import { Client, Events, GatewayIntentBits, Partials, ChannelType } from 'discord.js';
+import { conversationContext, type PrepareContext } from '../modules/conversation-context.js';
 import type { Context } from '../core/context.js';
 import type { RunAgent } from '../modules/agent.js';
 import { discordMessages, type DirectMessage, type SendReply } from './discord-channel.js';
@@ -47,7 +48,12 @@ export const discordTransport: DiscordTransportFactory = (receive) => {
     },
   };
 };
-export function discordRuntime(ctx: Context, runAgent: RunAgent, factory = discordTransport) {
+export function discordRuntime(
+  ctx: Context,
+  runAgent: RunAgent,
+  factory = discordTransport,
+  prepare: PrepareContext = conversationContext(ctx),
+) {
   let transport: DiscordTransport | undefined,
     current = '',
     state: DiscordStatus['state'] = 'offline';
@@ -87,6 +93,7 @@ export function discordRuntime(ctx: Context, runAgent: RunAgent, factory = disco
             await next.send(channelId, content, () => alive() && (!allowed || allowed()));
         },
         alive,
+        prepare,
       );
       transport = next;
       // Login may remain pending during a network outage. Never block deactivation/reconfiguration on it.

@@ -4,8 +4,13 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Context } from '../core/context.js';
 import { HttpError } from '../core/http.js';
-import type { ChatMessage, RunAgent } from './agent.js';
-export function conversationRoutes(ctx: Context, runAgent: RunAgent) {
+import { conversationContext, type PrepareContext } from './conversation-context.js';
+import type { RunAgent } from './agent.js';
+export function conversationRoutes(
+  ctx: Context,
+  runAgent: RunAgent,
+  prepare: PrepareContext = conversationContext(ctx),
+) {
   const { store } = ctx;
   const router = Router();
   const busy = conversationLocks(ctx);
@@ -71,12 +76,14 @@ export function conversationRoutes(ctx: Context, runAgent: RunAgent) {
       if (!res.destroyed) res.write(': ping\n\n');
     }, 15000);
     try {
-      const history = store.all<ChatMessage>(
-        'SELECT role,content FROM (SELECT id,role,content FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT 60) ORDER BY id',
-        id,
-      );
-      const result = await runAgent(req.user!.id, [...history, { role: 'user', content }], (text) =>
-        send('delta', { text }),
+      const signal = AbortSignal.timeout(120000);
+      const context = await prepare(req.user!.id, id, content, signal);
+      send('context', { notice: context.notice });
+      const result = await runAgent(
+        req.user!.id,
+        context.messages,
+        (text) => send('delta', { text }),
+        { signal },
       );
       // A completed exchange is atomic; failed requests can safely be retried.
       store.transaction(() => {
@@ -94,14 +101,16 @@ export function conversationRoutes(ctx: Context, runAgent: RunAgent) {
           result,
           Date.now(),
         );
-        if (!history.length)
+        if (context.empty)
           store.run('UPDATE conversations SET title=? WHERE id=?', content.slice(0, 70), id);
       });
       send('done', { ok: true });
-    } catch {
+    } catch (error) {
       send('error', {
         error:
-          'Antwort fehlgeschlagen. Prüfe API-Key, Modell und Verbindungen. Deine Nachricht wurde nicht gespeichert; bitte erneut senden.',
+          error instanceof HttpError
+            ? error.message
+            : 'Antwort fehlgeschlagen. Prüfe API-Key, Modell und Verbindungen. Deine Nachricht wurde nicht gespeichert; bitte erneut senden.',
       });
     } finally {
       clearInterval(heartbeat);
