@@ -117,3 +117,10 @@
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
+
+.job-channel-icons {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 28px;
+}

@@ -4,6 +4,7 @@ import Markdown from 'react-markdown';
 import { api, post, date } from '../api';
 import { Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
 import './ScheduledJobs.css';
+import { ServiceIcon } from '../components/ServiceIcon';
 interface Schedule {
   kind: 'once' | 'interval' | 'cron';
   at: string | null;
@@ -240,21 +241,15 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                 </div>
                 <div>
                   <dt>Benachrichtigungen</dt>
-                  <dd>
-                    {job.channel === 'dashboard_discord'
-                      ? 'Dashboard und Discord · Direktnachricht an dein verknüpftes Konto'
-                      : job.channel === 'discord'
-                        ? 'Discord · Direktnachricht an dein verknüpftes Konto'
-                        : 'Dashboard'}{' '}
-                    ·{' '}
-                    {job.notification_mode === 'always'
-                      ? 'bei jeder erfolgreichen Ausführung'
-                      : 'nur bei erfüllter Bedingung'}
+                  <dd className="job-channel-icons">
+                    {['dashboard', 'dashboard_discord'].includes(job.channel) && (
+                      <ServiceIcon service="dashboard" title="Open AIPA · Dashboard" />
+                    )}
                     {['discord', 'dashboard_discord'].includes(job.channel) && (
-                      <small>
-                        Empfänger: {job.discord_recipient || 'Nicht verbunden'} · Freigabe beim
-                        Aktivieren
-                      </small>
+                      <ServiceIcon
+                        service="discord"
+                        title={`Discord · ${job.discord_recipient || 'Nicht verbunden'} · ${job.notification_mode === 'always' ? 'Bei jeder erfolgreichen Ausführung' : 'Nur bei erfüllter Bedingung'}`}
+                      />
                     )}
                   </dd>
                 </div>
