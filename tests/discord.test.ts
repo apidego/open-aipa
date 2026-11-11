@@ -427,3 +427,76 @@ it('migrates an existing v2 store without changing users or conversation history
   app.ctx.store = new Store(app.ctx.config.dataDir);
   expect(app.ctx.store.all('SELECT * FROM messages')).toHaveLength(1);
 });
+it('reads only bot history from the authenticated owner’s bound DM with pagination', async () => {
+  await linked();
+  app.ctx.store.set('discordBotId', '555555555555555555');
+  const rows = [
+    {
+      id: '666666666666666666',
+      author: { id: userId },
+      timestamp: '2026-11-11T09:00:00Z',
+      content: '!verbinden secret',
+    },
+    {
+      id: '666666666666666665',
+      author: { id: '555555555555555555' },
+      timestamp: '2026-11-11T08:00:00Z',
+      content: 'Erinnerung: Wäsche waschen.',
+    },
+  ];
+  const fetcher = vi.fn(async () => new Response(JSON.stringify(rows)));
+  vi.stubGlobal('fetch', fetcher);
+  const result = await discord.execute(app.ctx, 'u1', 'discord_read_history', {
+    before: null,
+    limit: 2,
+  });
+  expect(result).toEqual({
+    messages: [{ id: rows[1].id, sent_at: rows[1].timestamp, message: rows[1].content }],
+    next_before: rows[1].id,
+  });
+  expect(String(fetcher.mock.calls[0][0])).toBe(
+    `https://discord.com/api/v10/channels/${channelId}/messages?limit=2`,
+  );
+  await discord.execute(app.ctx, 'u1', 'discord_read_history', { before: rows[1].id, limit: 2 });
+  expect(String(fetcher.mock.calls[1][0])).toContain(`before=${rows[1].id}`);
+  await expect(
+    discord.execute(app.ctx, 'u2', 'discord_read_history', { before: null, limit: 2 }),
+  ).rejects.toThrow('disconnected');
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+it('rejects arbitrary destinations, disabled integrations and stale in-flight history', async () => {
+  await linked();
+  app.ctx.store.set('discordBotId', '555555555555555555');
+  const fetcher = vi.fn(async () => {
+    app.ctx.store.run('DELETE FROM discord_links WHERE user_id=?', 'u1');
+    return new Response('[]');
+  });
+  vi.stubGlobal('fetch', fetcher);
+  await expect(
+    discord.execute(app.ctx, 'u1', 'discord_read_history', {
+      before: null,
+      limit: 20,
+      channel_id: channelId,
+    }),
+  ).rejects.toThrow();
+  expect(fetcher).not.toHaveBeenCalled();
+  await expect(
+    discord.execute(app.ctx, 'u1', 'discord_read_history', { before: null, limit: 20 }),
+  ).rejects.toThrow('disconnected');
+  app.ctx.store.set('integration:discord:enabled', 'false');
+  await expect(
+    discord.execute(app.ctx, 'u1', 'discord_read_history', { before: null, limit: 20 }),
+  ).rejects.toThrow('aktivieren');
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+it('sanitizes Discord API failures instead of exposing remote details', async () => {
+  await linked();
+  app.ctx.store.set('discordBotId', '555555555555555555');
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(new Response('sensitive remote details', { status: 403 })),
+  );
+  await expect(
+    discord.execute(app.ctx, 'u1', 'discord_read_history', { before: null, limit: 20 }),
+  ).rejects.toThrow('Discord history unavailable');
+});
