@@ -95,6 +95,24 @@ export class Store {
       `),
       );
     }
+    if (!this.get('SELECT version FROM migrations WHERE version=7')) {
+      this.transaction(() =>
+        this.db.exec(`
+        CREATE TABLE mail_actions (
+          id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          kind TEXT NOT NULL CHECK(kind IN ('compose','reply','forward','trash')),
+          status TEXT NOT NULL CHECK(status IN ('draft','queued','sending','sent','trashed','cancelled','failed','unknown')),
+          payload TEXT NOT NULL, preview_payload TEXT NOT NULL, binding TEXT NOT NULL, generation TEXT NOT NULL,
+          send_at INTEGER, created_at INTEGER NOT NULL, approved_at INTEGER, finished_at INTEGER,
+          authorization TEXT CHECK(authorization IN ('review','direct')), error TEXT, result_id TEXT,
+          request_key TEXT, UNIQUE(user_id,request_key)
+        );
+        CREATE INDEX mail_actions_due ON mail_actions(status,send_at);
+        CREATE INDEX mail_actions_owner ON mail_actions(user_id,created_at);
+        INSERT INTO migrations(version) VALUES(7);
+      `),
+      );
+    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
     return this.db.prepare(sql).run(...params);

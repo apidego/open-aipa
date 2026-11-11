@@ -7,6 +7,7 @@ import {
   Plug,
   Workflow,
   ListTodo,
+  Mail as MailIcon,
   Settings as SettingsIcon,
   Users as UsersIcon,
   PanelLeftClose,
@@ -20,6 +21,7 @@ import { Access } from './pages/Access';
 import { Dashboard } from './pages/Dashboard';
 import { Conversations } from './pages/Conversations';
 import { ConversationOverview } from './pages/ConversationOverview';
+import { Mail } from './pages/Mail';
 import { Integrations } from './pages/Integrations';
 import { ScheduledJobs } from './pages/ScheduledJobs';
 import { Settings } from './pages/Settings';
@@ -69,6 +71,7 @@ function App() {
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/conversations', label: 'Konversationen', icon: MessageSquare },
     { to: '/integrations', label: 'Integrationen', icon: Plug },
+    { to: '/mail', label: 'E-Mails', icon: MailIcon },
     { to: '/automations', label: 'Automatisierungen', icon: Workflow },
     { to: '/tasks', label: 'Aufgaben', icon: ListTodo },
   ];
@@ -180,6 +183,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/conversations" element={<ConversationOverview />} />
             <Route path="/conversations/:id" element={<Conversations />} />
+            <Route path="/mail" element={<Mail />} />
             <Route path="/integrations" element={<Integrations user={user} />} />
             <Route
               path="/automations"

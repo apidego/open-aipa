@@ -30,5 +30,5 @@
 - All user-owned data queries must scope to the authenticated user. Only admins manage global secrets, prompts and users.
 - Never log or commit secrets, sessions, mail content, `.env`, or database files. Mock external APIs in automated tests.
 - New integrations implement `server/integrations/types.ts` and register explicitly. No arbitrary shell execution or dynamic untrusted plugins.
-- Gmail is read-only. Sending email or other external write tools needs a separate issue with an explicit action approval design.
+- Gmail writes must use the reviewed mail-action boundary or its server-validated explicit current-user direct instruction exception (see docs/gmail.md). Scripts and scheduled AI tasks retain read-only Gmail tools. Other external write capabilities need a separate issue with an explicit action approval design.
 - Keep README concise; put implementation and operational details in `docs/`. UI follows a quiet, light dashboard with an icon-only/expanded sidebar; conversations stay immediately below dashboard.

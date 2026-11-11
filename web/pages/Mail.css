@@ -1,0 +1,129 @@
+.mail-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr);
+  gap: 24px;
+  align-items: start;
+}
+.mail-overview {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.mail-detail {
+  min-width: 0;
+}
+.mail-list {
+  display: grid;
+  margin-top: 16px;
+  max-height: 480px;
+  overflow: auto;
+}
+.mail-list button {
+  display: grid;
+  gap: 5px;
+  border: 0;
+  border-top: 1px solid #e1e4dc;
+  border-radius: 0;
+  padding: 16px 4px;
+  width: 100%;
+  text-align: left;
+  justify-content: initial;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.mail-list button.selected {
+  background: #f0f2eb;
+  padding-inline: 12px;
+}
+.mail-list span,
+.mail-list small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.mail-search {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.mail-search input {
+  min-width: 0;
+  width: 100%;
+}
+.mail-addresses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.mail-schedule-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 18px 0;
+}
+.mail-schedule-toggle input {
+  width: auto;
+}
+.mail-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.65;
+  margin: 24px 0;
+}
+.mail-meta {
+  display: grid;
+  grid-template-columns: 75px minmax(0, 1fr);
+  gap: 10px 14px;
+  font-size: 13px;
+}
+.mail-meta dt {
+  color: var(--muted);
+}
+.mail-meta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.mail-detail h2,
+.mail-detail p {
+  overflow-wrap: anywhere;
+}
+.mail-detail details {
+  margin-block: 20px;
+}
+.mail-empty {
+  text-align: center;
+  padding: 48px 16px;
+}
+.mail-empty > img {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 20px;
+}
+.mail-access {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+@media (max-width: 900px) {
+  .mail-grid {
+    grid-template-columns: 1fr;
+  }
+  .mail-detail {
+    grid-row: 1;
+  }
+}
+@media (max-width: 500px) {
+  .mail-addresses {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .mail-meta {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .mail-meta dd {
+    margin-bottom: 10px;
+  }
+}

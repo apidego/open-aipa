@@ -15,7 +15,7 @@ An open-source, self-hosted personal assistant powered by your OpenAI API key. C
 - Recurring assistant tasks, pause/resume controls and execution history.
 - Responsive dashboard with an expandable icon sidebar.
 
-The interface is currently German. Gmail is read-only; this version does not send mail, run shell commands, or control your computer. OpenAI usage is billed separately to your account. This project is independent and not affiliated with OpenAI or OpenClaw.
+The interface is currently German. Gmail supports reading, reviewed sending/replies/forwarding, trash and locally scheduled sending. Explicit direct user instructions can skip review; see [Gmail setup and approval](docs/gmail.md). The app does not run shell commands or control your computer. OpenAI usage is billed separately to your account. This project is independent and not affiliated with OpenAI or OpenClaw.
 
 ## Install
 

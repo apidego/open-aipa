@@ -1,3 +1,4 @@
+import { mailRoutes, mailQueue } from './modules/mail/actions.js';
 import express, { type ErrorRequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -93,6 +94,7 @@ export function createApp(
   app.use('/api/automations', jobRoutes(ctx, 'automation', planJob));
   app.use('/api/tasks', jobRoutes(ctx, 'task', planJob));
   app.use('/api/notifications', notificationRoutes(ctx));
+  app.use('/api/mail', mailRoutes(ctx));
   app.use('/api/integrations', integrationRoutes(ctx));
   app.use('/api/integrations/gmail', gmailRoutes(ctx));
   app.use('/api/integrations/discord', discordRoutes(ctx, discord.status));
@@ -156,5 +158,14 @@ export function createApp(
     res.status(500).json({ error: 'Ein interner Fehler ist aufgetreten.' });
   };
   app.use(errors);
-  return { app, ctx, discord, tick: scheduler(ctx, runAgent) };
+  const jobs = scheduler(ctx, runAgent),
+    mails = mailQueue(ctx);
+  return {
+    app,
+    ctx,
+    discord,
+    tick: async () => {
+      await Promise.all([jobs(), mails()]);
+    },
+  };
 }

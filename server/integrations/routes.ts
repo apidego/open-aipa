@@ -1,3 +1,4 @@
+import { gmailAccess } from '../modules/mail/actions.js';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Context } from '../core/context.js';
@@ -22,6 +23,7 @@ export function integrationRoutes(ctx: Context) {
     res.json(
       integrations.map((i) => ({
         id: i.id,
+        ...(i.id === 'gmail' ? { canWrite: gmailAccess(ctx, req.user!.id).canWrite } : {}),
         name: i.name,
         description: i.description,
         enabled: integrationEnabled(ctx, i.id),
