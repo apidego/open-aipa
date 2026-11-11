@@ -1,3 +1,4 @@
+import { botInstructions } from './bot-profile.js';
 import OpenAI from 'openai';
 import type { Context } from '../core/context.js';
 import { HttpError } from '../core/http.js';
@@ -82,7 +83,7 @@ export function conversationContext(
     signal?.throwIfAborted();
     const tools = connectedIntegrations(ctx, userId).flatMap((i) => i.tools);
     const overhead = requestTokens(
-      ctx.store.setting('systemPrompt'),
+      ctx.store.setting('systemPrompt') + botInstructions(ctx),
       [{ role: 'user', content: current }],
       tools,
     );

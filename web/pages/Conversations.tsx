@@ -1,15 +1,17 @@
+import { BotAvatar, useBotProfile } from '../components/BotIdentity';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowUp, ArrowLeft, Plus, Trash2, LoaderCircle } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { api, post, type Conversation } from '../api';
-import { Brand, Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
 import './Conversations.css';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 export function Conversations() {
+  const bot = useBotProfile();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -158,9 +160,9 @@ export function Conversations() {
       <section className="card chat" aria-label="Chat">
         <div className="chat-heading">
           <div className="wordmark">
-            <Brand />
+            <BotAvatar profile={bot} />
             <div>
-              <strong>Open AIPA</strong>
+              <strong>{bot.name}</strong>
               <small>{busy ? 'Dein PA antwortet …' : 'Dein persönlicher Assistent'}</small>
             </div>
           </div>
@@ -207,7 +209,16 @@ export function Conversations() {
           )}
           {messages.map((m, i) => (
             <article className={`message ${m.role}`} key={i}>
-              <span className="message-label">{m.role === 'user' ? 'Du' : 'Open AIPA'}</span>
+              <span className="message-label">
+                {m.role === 'user' ? (
+                  'Du'
+                ) : (
+                  <>
+                    <BotAvatar profile={bot} small />
+                    {bot.name}
+                  </>
+                )}
+              </span>
               {m.content ? (
                 <Markdown>{m.content}</Markdown>
               ) : (
@@ -229,7 +240,7 @@ export function Conversations() {
           >
             <textarea
               aria-label="Nachricht"
-              placeholder="Schreib deinem PA …"
+              placeholder={`Schreib ${bot.name} …`}
               value={draft}
               maxLength={16000}
               disabled={!id || busy || loading || !!loadError}

@@ -1287,3 +1287,38 @@ fieldset {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.bot-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.bot-avatar.small {
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.bot-avatar.small svg {
+  width: 16px;
+  height: 16px;
+}
+.bot-profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 20px 0;
+  overflow-wrap: anywhere;
+}
+.bot-profile-preview .bot-avatar {
+  width: 64px;
+  height: 64px;
+}
+.message-label .bot-avatar {
+  margin-bottom: 0;
+}
