@@ -12,6 +12,7 @@ export interface Job {
   script: string | null;
   schedule: string;
   channel: string;
+  notification_mode: 'always' | 'conditional';
   allow_ai: number;
   status: 'draft' | 'active' | 'paused' | 'completed';
   next_run: number | null;
@@ -32,6 +33,7 @@ export interface Plan {
   script: string | null;
   schedule: Schedule;
   channel: string;
+  notificationMode: 'always' | 'conditional';
 }
 export type PlanJob = (
   userId: string,

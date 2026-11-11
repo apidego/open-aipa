@@ -21,6 +21,7 @@ const interval: Schedule = {
 const script =
   'return {notify:true,title:"Ergebnis",message:"Ohne KI ausgeführt",state:{count:(pa.state.count||0)+1}};';
 const plan: Plan = {
+  notificationMode: 'conditional',
   clarification: null,
   name: 'Prüfung',
   description: 'Regelmäßige Prüfung',
@@ -336,7 +337,7 @@ it('does not deliver results when a task is deleted during execution', async () 
 it('migrates legacy automations and run history to tasks exactly once', () => {
   const { store } = instance.ctx;
   store.db.exec(
-    'DROP TABLE notifications;DROP TABLE job_runs;DROP TABLE jobs;DELETE FROM migrations WHERE version=2;',
+    'DROP TABLE notifications;DROP TABLE job_runs;DROP TABLE jobs;DELETE FROM migrations WHERE version IN (2,6);',
   );
   store.run(
     'INSERT INTO users VALUES(?,?,?,?,?,?)',
@@ -430,4 +431,20 @@ it('caps tool calls and rejects connected tools not explicitly approved for scri
     runScript(instance.ctx, { ...base, script: "pa.tool('gmail_search',{query:'x'});" }, runAgent),
   ).rejects.toThrow();
   expect(execute).toHaveBeenCalledTimes(20);
+});
+
+it('preserves existing task policies and data when migrating version 5', async () => {
+  const a = await setup();
+  const job = await draft(a, 'tasks');
+  instance.ctx.store.db.exec(
+    'ALTER TABLE jobs DROP COLUMN notification_mode;DELETE FROM migrations WHERE version=6;',
+  );
+  instance.ctx.store.db.close();
+  instance.ctx.store = new Store(dir);
+  expect(instance.ctx.store.get<Job>('SELECT * FROM jobs WHERE id=?', job.id)).toMatchObject({
+    id: job.id,
+    prompt: job.prompt,
+    status: 'draft',
+    notification_mode: 'conditional',
+  });
 });

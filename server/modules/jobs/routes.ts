@@ -107,6 +107,10 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
           400,
           'Der gewünschte Benachrichtigungskanal ist noch nicht verbunden. Eine Umleitung ins Dashboard erfolgt nicht.',
         );
+      const notificationMode =
+        kind === 'automation'
+          ? 'conditional'
+          : z.enum(['always', 'conditional']).parse(plan.notificationMode);
       nextRun(plan.schedule, Date.now(), true);
       if (kind === 'automation') {
         try {
@@ -122,7 +126,7 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
       store.transaction(() => {
         quota();
         store.run(
-          "INSERT INTO jobs(id,user_id,kind,name,description,input_prompt,prompt,script,schedule,channel,allow_ai,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',?)",
+          "INSERT INTO jobs(id,user_id,kind,name,description,input_prompt,prompt,script,schedule,channel,notification_mode,allow_ai,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?)",
           id,
           req.user!.id,
           kind,
@@ -133,6 +137,7 @@ export function jobRoutes(ctx: Context, kind: JobKind, planJob: PlanJob) {
           kind === 'automation' ? plan.script : null,
           JSON.stringify(plan.schedule),
           channel,
+          notificationMode,
           Number(kind === 'automation' && data.allowAI),
           Date.now(),
         );

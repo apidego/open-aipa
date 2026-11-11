@@ -20,6 +20,7 @@ interface Job {
   script: string | null;
   schedule: Schedule;
   channel: string;
+  notification_mode: 'always' | 'conditional';
   discord_binding_id?: string | null;
   discord_recipient?: string | null;
   allow_ai: number;
@@ -139,7 +140,7 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
       action === 'active' &&
       ['discord', 'dashboard_discord'].includes(job.channel) &&
       !confirm(
-        `Discord-Zustellung für diese Aufgabe an dein verknüpftes Konto ${job.discord_recipient || '(nicht verbunden)'} freigeben? Nur bei erfüllter Bedingung wird eine Direktnachricht gesendet. Kein Versand an andere Empfänger.`,
+        `Discord-Zustellung für diese Aufgabe an dein verknüpftes Konto ${job.discord_recipient || '(nicht verbunden)'} freigeben? ${job.notification_mode === 'always' ? 'Bei jeder erfolgreichen Ausführung' : 'Nur bei erfüllter Bedingung'} wird eine Direktnachricht gesendet. Kein Versand an andere Empfänger.`,
       )
     )
       return;
@@ -245,7 +246,10 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                       : job.channel === 'discord'
                         ? 'Discord · Direktnachricht an dein verknüpftes Konto'
                         : 'Dashboard'}{' '}
-                    · nur bei erfüllter Bedingung
+                    ·{' '}
+                    {job.notification_mode === 'always'
+                      ? 'bei jeder erfolgreichen Ausführung'
+                      : 'nur bei erfüllter Bedingung'}
                     {['discord', 'dashboard_discord'].includes(job.channel) && (
                       <small>
                         Empfänger: {job.discord_recipient || 'Nicht verbunden'} · Freigabe beim
