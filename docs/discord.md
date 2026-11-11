@@ -24,3 +24,7 @@ Each user's turns are serialized and share conversation locks with the dashboard
 External service tests use mocked transport, Discord validation responses and AI; real delivery requires a valid bot token, internet access and a linked Discord account. Never commit tokens, pairing commands, real Discord messages or account data into review screenshots.
 
 References: [Gateway and intents](https://docs.discord.com/developers/events/gateway), [Discord messages](https://docs.discord.com/developers/resources/message), [discord.js](https://discord.js.org/docs/packages/discord.js/stable).
+
+## Recalling reminders
+
+The assistant can use the read-only `notification_history` tool to look up the authenticated owner's delivered dashboard notifications and successfully sent Discord reminders, including existing records. Results are date/text-filtered, paginated, bounded excerpts with creation timestamps and task timezone. Combined deliveries appear once with both confirmed channels. Pending, failed and silent runs are excluded. The timestamp is when the notification was recorded, not necessarily when Discord delivered it. Deleted Discord-only task histories are no longer available. This is owner-wide notification history, including across new conversations; it does not read arbitrary Discord messages or send anything.
