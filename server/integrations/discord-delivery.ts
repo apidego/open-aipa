@@ -56,7 +56,7 @@ export function discordDelivery(ctx: Context, send: SendReply, ready: () => bool
       )
         continue;
       try {
-        const content = row.title + '\n\n' + row.message;
+        const content = row.message;
         for (let offset = 0; offset < content.length; offset += 1900) {
           if (!valid() || !ready()) throw new Error();
           await send(
