@@ -4,7 +4,7 @@
 
 **Automatisierungen** generate a JavaScript script once when you describe the desired action and schedule. The server later executes the stored script. There is no model call on each run unless you explicitly enable AI access and the script calls `pa.ai`.
 
-**Aufgaben** use the configured AI model and connected tools at execution time. Example: “Prüfe morgen um 10 Uhr mein Gmail-Postfach. Falls eine Mail von XY einen Treffpunkt nennt, benachrichtige mich. Ansonsten sag nichts.” The model can complete silently when the condition is not met. The run remains in the history.
+**Aufgaben** use the configured AI model and connected tools at execution time. Example: “Prüfe morgen um 10 Uhr mein Gmail-Postfach. Falls eine Mail von XY einen Treffpunkt nennt, benachrichtige mich. Ansonsten sag nichts.” New tasks notify on every successful execution by default. Only an explicitly requested notification condition allows silence; excluding spam or newsletters is a content filter, not a silence condition. The draft displays this policy independently of the destination channels. Existing tasks keep their previous conditional policy and can be recreated to use the new default. The model can complete silently when an explicit condition is not met. The run remains in the history.
 
 Enter a request and timezone, create a draft, inspect its description and upcoming times, then activate it. Scripts can be expanded for inspection. Drafts never run. Pause/resume and delete are available on existing entries. To change the instruction or schedule, create a new draft and remove or pause the old entry. This version does not edit an active script in place or offer a manual “run now” action.
 

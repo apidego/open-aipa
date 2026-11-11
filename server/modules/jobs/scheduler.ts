@@ -64,6 +64,9 @@ export function scheduler(ctx: Context, runAgent: RunAgent) {
                     ),
                   ),
                 );
+          // Delivery policy was reviewed with the draft; the executor cannot silence
+          // an unconditional task merely by returning notify=false.
+          if (job.kind === 'task' && job.notification_mode === 'always') outcome.notify = true;
           store.transaction(() => {
             if (!store.get('SELECT id FROM jobs WHERE id=? AND user_id=?', job.id, job.user_id))
               return;

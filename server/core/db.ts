@@ -86,6 +86,15 @@ export class Store {
       `),
       );
     }
+    if (!this.get('SELECT version FROM migrations WHERE version=6')) {
+      this.transaction(() =>
+        this.db.exec(`
+        ALTER TABLE jobs ADD COLUMN notification_mode TEXT NOT NULL DEFAULT 'conditional'
+          CHECK(notification_mode IN ('always','conditional'));
+        INSERT INTO migrations(version) VALUES(6);
+      `),
+      );
+    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
     return this.db.prepare(sql).run(...params);

@@ -10,7 +10,9 @@ import { discordRuntime } from '../server/integrations/discord-runtime.js';
 import type { Plan } from '../server/modules/jobs/types.js';
 const origin = 'http://localhost:3000';
 let plannedChannel = 'discord';
+let notificationMode: Plan['notificationMode'] = 'conditional';
 const plan: Plan = {
+  notificationMode: 'conditional',
   clarification: null,
   name: 'Terminprüfung',
   description: 'Bei Treffer per Discord benachrichtigen',
@@ -26,6 +28,7 @@ const run = vi.fn(async () =>
 const send = vi.fn(async (_channel: string, _content: string, _allowed?: () => boolean) => {});
 beforeEach(async () => {
   plannedChannel = 'discord';
+  notificationMode = 'conditional';
   run
     .mockReset()
     .mockResolvedValue(
@@ -42,7 +45,7 @@ beforeEach(async () => {
       googleClientSecret: '',
     },
     run,
-    async () => ({ ...plan, channel: plannedChannel }),
+    async () => ({ ...plan, channel: plannedChannel, notificationMode }),
   );
   a = request.agent(app.app);
   await a
@@ -361,4 +364,36 @@ it('suppresses both default channels when the condition is false', async () => {
   await app.tick();
   expect(delivery()).toBeUndefined();
   expect((await a.get('/api/notifications')).body.items).toEqual([]);
+});
+
+it('delivers an unconditional summary to both channels even when the model returns notify=false', async () => {
+  plannedChannel = 'all';
+  notificationMode = 'always';
+  run.mockResolvedValue(
+    JSON.stringify({
+      notify: false,
+      title: 'Zusammenfassung',
+      message: 'Die angeforderte Zusammenfassung.',
+    }),
+  );
+  const job = await draft();
+  expect(job.notification_mode).toBe('always');
+  await activate(job.id);
+  await app.tick();
+  expect((await a.get('/api/notifications')).body.items).toHaveLength(1);
+  expect(delivery()?.status).toBe('pending');
+  await discordDelivery(app.ctx, send, () => true)();
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(delivery()?.status).toBe('sent');
+});
+it('does not deliver an unconditional task when execution fails', async () => {
+  plannedChannel = 'all';
+  notificationMode = 'always';
+  run.mockRejectedValue(new Error('mock failure'));
+  const job = await draft();
+  await activate(job.id);
+  await app.tick();
+  expect((await a.get('/api/notifications')).body.items).toEqual([]);
+  expect(delivery()).toBeUndefined();
+  expect((await a.get('/api/tasks/' + job.id + '/runs')).body[0].status).toBe('failed');
 });

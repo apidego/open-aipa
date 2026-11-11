@@ -61,6 +61,10 @@ it('generates structured plans with configured model, time context, script contr
   expect(parse.mock.calls[0][0].instructions).toContain('AI permission: false');
   expect(parse.mock.calls[0][0].instructions).toContain('User timezone: Europe/Berlin');
   expect(parse.mock.calls[0][0].tools).toBeUndefined();
+  expect(parse.mock.calls[0][0].instructions).toContain('notificationMode="always" by default');
+  expect(parse.mock.calls[0][0].instructions).toContain(
+    'Content filters such as excluding spam/newsletters are NOT a notification condition.',
+  );
   expect(parse.mock.calls[0][0].instructions).toContain('Set channel="all" by default');
   expect(parse.mock.calls[0][0].instructions).toContain(
     '"nur Discord" / "über Discord" means channel="discord"',
