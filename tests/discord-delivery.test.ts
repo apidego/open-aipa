@@ -1,3 +1,4 @@
+import { notificationHistory } from '../server/modules/notification-history.js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -396,4 +397,52 @@ it('does not deliver an unconditional task when execution fails', async () => {
   expect((await a.get('/api/notifications')).body.items).toEqual([]);
   expect(delivery()).toBeUndefined();
   expect((await a.get('/api/tasks/' + job.id + '/runs')).body[0].status).toBe('failed');
+});
+
+it('recalls only successfully delivered owner notifications and deduplicates both channels', async () => {
+  plannedChannel = 'all';
+  const job = await draft();
+  await activate(job.id);
+  await app.tick();
+  const query = { after: null, before: null, query: 'Termin', offset: 0 };
+  expect(notificationHistory(app.ctx, uid, query).items[0].channels).toEqual(['dashboard']);
+  await discordDelivery(app.ctx, send, () => true)();
+  const history = notificationHistory(app.ctx, uid, query);
+  expect(history.items).toHaveLength(1);
+  expect(history.items[0].channels.sort()).toEqual(['dashboard', 'discord']);
+  expect(history.items[0].message).toBe('Ein Termin steht an.');
+  expect(notificationHistory(app.ctx, 'other-owner', query).items).toEqual([]);
+  expect(
+    notificationHistory(app.ctx, uid, { ...query, before: '2000-01-01T00:00:00Z' }).items,
+  ).toEqual([]);
+  expect(notificationHistory(app.ctx, uid, { ...query, query: 'not present' }).items).toEqual([]);
+  expect(() => notificationHistory(app.ctx, uid, { ...query, userId: 'other' })).toThrow();
+});
+it('does not describe pending or failed Discord-only reminders as delivered', async () => {
+  const job = await draft();
+  await activate(job.id);
+  await app.tick();
+  const query = { after: null, before: null, query: null, offset: 0 };
+  expect(notificationHistory(app.ctx, uid, query).items).toEqual([]);
+  send.mockRejectedValue(new Error('mock failure'));
+  await discordDelivery(app.ctx, send, () => true)();
+  expect(notificationHistory(app.ctx, uid, query).items).toEqual([]);
+});
+it('bounds and paginates notification history', () => {
+  for (let i = 0; i < 12; i++)
+    app.ctx.store.run(
+      'INSERT INTO notifications(id,user_id,title,message,channel,created_at) VALUES(?,?,?,?,?,?)',
+      'history-' + i,
+      uid,
+      'Test',
+      'x'.repeat(10000),
+      'dashboard',
+      i,
+    );
+  const query = { after: null, before: null, query: null, offset: 0 };
+  const first = notificationHistory(app.ctx, uid, query);
+  expect(first.items).toHaveLength(10);
+  expect(first.has_more).toBe(true);
+  expect(first.items[0].message.length).toBeLessThan(10000);
+  expect(notificationHistory(app.ctx, uid, { ...query, offset: 10 }).items).toHaveLength(2);
 });

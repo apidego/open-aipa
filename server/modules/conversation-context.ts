@@ -1,3 +1,4 @@
+import { notificationHistoryTool } from './notification-history.js';
 import { botInstructions } from './bot-profile.js';
 import OpenAI from 'openai';
 import type { Context } from '../core/context.js';
@@ -81,7 +82,10 @@ export function conversationContext(
       !!store.get('SELECT 1 FROM conversations WHERE id=? AND user_id=?', conversationId, userId);
     if (!owns()) throw new HttpError(404, 'Konversation nicht gefunden.');
     signal?.throwIfAborted();
-    const tools = connectedIntegrations(ctx, userId).flatMap((i) => i.tools);
+    const tools = [
+      ...connectedIntegrations(ctx, userId).flatMap((i) => i.tools),
+      notificationHistoryTool,
+    ];
     const overhead = requestTokens(
       ctx.store.setting('systemPrompt') + botInstructions(ctx),
       [{ role: 'user', content: current }],

@@ -61,9 +61,9 @@ it('streams text with custom settings and no server-side OpenAI storage', async 
   expect(delta).toHaveBeenCalledWith('A helpful answer');
   expect(create.mock.calls[0][0]).toMatchObject({
     model: 'test-model',
-    instructions: 'Custom PA instructions',
+    instructions: expect.stringContaining('Custom PA instructions'),
     store: false,
-    tools: [],
+    tools: [expect.objectContaining({ name: 'notification_history' })],
     include: ['reasoning.encrypted_content'],
   });
 });
@@ -158,4 +158,22 @@ it('bounds tool output and checks the entire request again before the next tool 
   );
   expect(result.truncated).toBe(true);
   expect(result.warning).toContain('Incomplete');
+});
+
+it('looks up delivered reminders with the authenticated owner, without external writes', async () => {
+  ctx.store.run(
+    "INSERT INTO notifications(id,user_id,title,message,channel,created_at) VALUES('n','u1','Wäsche','Wäsche waschen','dashboard',?)",
+    Date.now(),
+  );
+  const call = {
+    type: 'function_call',
+    call_id: 'history',
+    name: 'notification_history',
+    arguments: JSON.stringify({ after: null, before: null, query: null, offset: 0 }),
+  };
+  create
+    .mockResolvedValueOnce(events([call]))
+    .mockResolvedValueOnce(events([], 'Ich habe dich ans Wäschewaschen erinnert.'));
+  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Woran hast du mich erinnert?' }]);
+  expect(JSON.stringify(create.mock.calls[1][0].input)).toContain('Wäsche waschen');
 });

@@ -1,3 +1,4 @@
+import { discordHistory, discordHistoryTool } from './discord-history.js';
 import { Router } from 'express';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
@@ -10,7 +11,7 @@ export const discord: Integration = {
   id: 'discord',
   name: 'Discord',
   description: 'Mit deinem PA per Discord-Direktnachricht sprechen.',
-  tools: [],
+  tools: [discordHistoryTool],
   configured: (ctx) => !!ctx.store.setting('discordBotToken'),
   deactivate(ctx) {
     ctx.store.run('DELETE FROM discord_pairings');
@@ -22,8 +23,9 @@ export const discord: Integration = {
     );
     ctx.store.run('DELETE FROM discord_links');
   },
-  async execute() {
-    throw new Error('Discord has no model-callable send tool');
+  async execute(ctx, userId, name, args) {
+    if (name !== discordHistoryTool.name) throw new Error('Unknown Discord tool');
+    return discordHistory(ctx, userId, args);
   },
 };
 export type DiscordStatus = { state: 'offline' | 'connecting' | 'online' | 'error' };
