@@ -11,6 +11,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { api, post, date, type Conversation } from '../api';
 import { Empty, ErrorMessage, Loading, PageTitle } from '../components/ui';
+import { ServiceIcon } from '../components/ServiceIcon';
 import { Notifications } from '../components/Notifications';
 interface DashboardData {
   conversations: number;
@@ -189,7 +190,9 @@ export function Dashboard() {
           )}
         </section>
         <section className="card integration-teaser">
-          <div className="gmail-logo">M</div>
+          <div className="integration-logo">
+            <ServiceIcon service="gmail" />
+          </div>
           <div>
             <h3>Gmail verbinden</h3>
             <p>Verbinde Gmail, um E-Mails über die Integration zu suchen und zu lesen.</p>

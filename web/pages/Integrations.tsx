@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Check, ExternalLink, Plug, ShieldCheck, Settings, MessageCircle } from 'lucide-react';
+import { Check, ExternalLink, Plug, ShieldCheck, Settings } from 'lucide-react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Loading, PageTitle } from '../components/ui';
 import { DeactivateIntegration } from '../components/DeactivateIntegration';
+import { ServiceIcon } from '../components/ServiceIcon';
 import { IntegrationSettings } from '../components/IntegrationSettings';
 interface Integration {
   id: string;
@@ -47,8 +48,12 @@ export function Integrations({ user }: { user: User }) {
           {items.map((item) => (
             <section className="card integration-card" key={item.id}>
               <div className="card-heading">
-                <span className="gmail-logo">
-                  {item.id === 'discord' ? <MessageCircle size={25} /> : 'M'}
+                <span className="integration-logo">
+                  {item.id === 'discord' || item.id === 'gmail' ? (
+                    <ServiceIcon service={item.id} />
+                  ) : (
+                    <Plug size={25} aria-label={item.name} />
+                  )}
                 </span>
                 <div className="integration-card-actions">
                   <span className={`badge ${item.connected ? 'connected' : ''}`}>

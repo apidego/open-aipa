@@ -582,7 +582,7 @@ hr {
   gap: 21px;
   background: #fcfdfb;
 }
-.gmail-logo {
+.integration-logo {
   width: 45px;
   height: 45px;
   border: 1px solid #e8eae3;
@@ -1169,7 +1169,7 @@ fieldset {
     align-items: flex-start;
     gap: 13px;
   }
-  .gmail-logo {
+  .integration-logo {
     width: 36px;
     height: 36px;
     font-size: 22px;
@@ -1321,4 +1321,16 @@ fieldset {
 }
 .message-label .bot-avatar {
   margin-bottom: 0;
+}
+
+.service-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.integration-logo .service-icon {
+  width: 28px;
+  height: 28px;
 }
