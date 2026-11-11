@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Check, ExternalLink, Plug, ShieldCheck, Settings } from 'lucide-react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Loading, PageTitle } from '../components/ui';
@@ -11,6 +11,7 @@ interface Integration {
   name: string;
   description: string;
   connected: boolean;
+  canWrite?: boolean;
   configured: boolean;
   enabled: boolean;
 }
@@ -115,13 +116,15 @@ export function Integrations({ user }: { user: User }) {
                     <span>
                       {item.id === 'discord'
                         ? 'Kanal · Nur persönliche Direktnachrichten'
-                        : 'Lesender Zugriff · Nur dein persönliches Konto'}
+                        : item.canWrite
+                          ? 'Lesen und Schreiben · Dein persönliches Konto'
+                          : 'Lesender Zugriff · Berechtigungen erweiterbar'}
                     </span>
                   </div>
                   <p className="small">
                     {item.id === 'discord'
                       ? 'Schreibe deinem PA in Discord. Nachrichten werden mit deinem Konto verarbeitet und im Dashboard gespeichert.'
-                      : 'Dein PA kann bei passenden Aufträgen E-Mails lesen und deren Inhalt an OpenAI zur Verarbeitung übertragen.'}
+                      : 'Dein PA kann Mails lesen und verfassen. Versand und Löschen benötigen deine Freigabe – außer du weist ausdrücklich eine direkte Ausführung an.'}
                   </p>
                   {!item.configured ? (
                     <div className="notice">
@@ -167,6 +170,28 @@ export function Integrations({ user }: { user: User }) {
                             ? 'Discord-Konto verknüpfen'
                             : 'Mit Gmail verbinden'}
                       <Plug size={15} />
+                    </button>
+                  )}
+                  {item.id === 'gmail' && item.connected && (
+                    <Link to="/mail">E-Mails und Versandplanung öffnen</Link>
+                  )}
+                  {item.id === 'gmail' && item.connected && !item.canWrite && (
+                    <button
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        setError('');
+                        try {
+                          const result = await api('/integrations/gmail/connect', post({}));
+                          window.location.assign(result.url);
+                        } catch (e) {
+                          setError((e as Error).message);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                    >
+                      Berechtigungen erweitern
                     </button>
                   )}
                   <small>

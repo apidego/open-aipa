@@ -239,7 +239,7 @@ it('uses expiring session-bound OAuth state and PKCE, rejecting replay and wrong
     tokens: {
       access_token: 'access-test',
       refresh_token: 'refresh-test',
-      scope: 'https://www.googleapis.com/auth/gmail.readonly',
+      scope: 'https://www.googleapis.com/auth/gmail.modify',
     },
     res: null,
   } as never);
@@ -506,7 +506,7 @@ it('does not restore a Gmail connection when an old OAuth exchange completes aft
       tokens: {
         access_token: 'old-access',
         refresh_token: 'old-refresh',
-        scope: 'https://www.googleapis.com/auth/gmail.readonly',
+        scope: 'https://www.googleapis.com/auth/gmail.modify',
       },
       res: null,
     } as never;

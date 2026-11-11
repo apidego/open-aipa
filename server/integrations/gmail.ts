@@ -1,76 +1,29 @@
-import { OAuth2Client, CodeChallengeMethod } from 'google-auth-library';
+import { CodeChallengeMethod } from 'google-auth-library';
 import { z } from 'zod';
 import { Router } from 'express';
 import type { Context } from '../core/context.js';
 import { admin, HttpError } from '../core/http.js';
 import { digest, token } from '../core/security.js';
 import type { Integration } from './types.js';
-import { gmailSettings, requireIntegration, integrationEnabled } from './state.js';
-const scope = 'https://www.googleapis.com/auth/gmail.readonly';
-export function googleClient(ctx: Context) {
-  requireIntegration(ctx, 'gmail');
-  const { clientId: id, encryptedSecret, envSecret } = gmailSettings(ctx);
-  const secret = encryptedSecret ? ctx.vault.open(encryptedSecret) : envSecret;
-  if (!id || !secret)
-    throw new HttpError(400, 'Bitte zuerst Google OAuth in den Einstellungen konfigurieren.');
-  return new OAuth2Client({
-    clientId: id,
-    clientSecret: secret,
-    redirectUri: `${ctx.config.url}/api/integrations/gmail/callback`,
-  });
-}
-async function clientFor(ctx: Context, userId: string) {
-  const row = ctx.store.get<{ credentials: string }>(
-    'SELECT credentials FROM connections WHERE user_id=? AND provider=?',
-    userId,
-    'gmail',
-  );
-  if (!row) throw new HttpError(400, 'Gmail ist nicht verbunden.');
-  const client = googleClient(ctx);
-  const generation = ctx.store.setting('gmailGeneration');
-  client.setCredentials(JSON.parse(ctx.vault.open(row.credentials)));
-  client.on('tokens', (tokens) => {
-    const latest = ctx.store.get<{ credentials: string }>(
-      'SELECT credentials FROM connections WHERE user_id=? AND provider=?',
-      userId,
-      'gmail',
-    );
-    if (
-      latest &&
-      latest.credentials === row.credentials &&
-      integrationEnabled(ctx, 'gmail') &&
-      ctx.store.setting('gmailGeneration') === generation
-    )
-      ctx.store.run(
-        'UPDATE connections SET credentials=? WHERE user_id=? AND provider=?',
-        ctx.vault.seal(
-          JSON.stringify({ ...JSON.parse(ctx.vault.open(latest.credentials)), ...tokens }),
-        ),
-        userId,
-        'gmail',
-      );
-  });
-  return client;
-}
-interface MailPart {
-  mimeType?: string;
-  body?: { data?: string };
-  parts?: MailPart[];
-}
-function textParts(part?: MailPart): string {
-  if (!part) return '';
-  const own =
-    part.mimeType === 'text/plain' && part.body?.data
-      ? Buffer.from(part.body.data, 'base64url').toString('utf8')
-      : '';
-  return [own, ...(part.parts || []).map(textParts)].filter(Boolean).join('\n');
-}
+import { gmailSettings, requireIntegration } from './state.js';
+import { googleClient, clientFor, textParts, type MailPart } from './gmail-client.js';
+import {
+  gmailActionTools,
+  prepareMailAction,
+  mailActionStatus,
+  cancelMailAction,
+  cancelPendingMail,
+} from '../modules/mail/actions.js';
+import type { ToolContext } from './types.js';
+export { googleClient } from './gmail-client.js';
+const scope = 'https://www.googleapis.com/auth/gmail.modify';
 export const gmail: Integration = {
   id: 'gmail',
   scriptTools: ['gmail_search', 'gmail_read'],
   name: 'Gmail',
-  description: 'E-Mails durchsuchen, lesen und zusammenfassen.',
+  description: 'E-Mails lesen, schreiben, beantworten, weiterleiten und den Versand planen.',
   tools: [
+    ...gmailActionTools,
     {
       type: 'function',
       name: 'gmail_search',
@@ -102,6 +55,7 @@ export const gmail: Integration = {
     return !!(config.clientId && (config.encryptedSecret || config.envSecret));
   },
   deactivate(ctx) {
+    cancelPendingMail(ctx);
     ctx.store.run('DELETE FROM oauth_states');
     ctx.store.set('gmailGeneration', token());
   },
@@ -109,7 +63,10 @@ export const gmail: Integration = {
     ctx.store.run("DELETE FROM settings WHERE key IN ('googleClientId','googleClientSecret')");
     ctx.store.set('integration:gmail:ignoreEnv', 'true');
   },
-  async execute(ctx, userId, name, args) {
+  async execute(ctx, userId, name, args, execution?: ToolContext) {
+    if (name === 'gmail_prepare_action') return prepareMailAction(ctx, userId, args, execution);
+    if (name === 'gmail_action_status') return mailActionStatus(ctx, userId, args);
+    if (name === 'gmail_cancel_action') return cancelMailAction(ctx, userId, args);
     const client = await clientFor(ctx, userId);
     if (name === 'gmail_search') {
       const { query } = z.object({ query: z.string().max(500) }).parse(args);
@@ -229,6 +186,7 @@ export function gmailRoutes(ctx: Context) {
       requireIntegration(ctx, 'gmail');
       if (store.setting('gmailGeneration') !== generation)
         return res.redirect('/integrations?error=oauth_changed');
+      cancelPendingMail(ctx, req.user!.id);
       store.run(
         'INSERT INTO connections VALUES(?,?,?) ON CONFLICT(user_id,provider) DO UPDATE SET credentials=excluded.credentials',
         req.user!.id,
@@ -241,6 +199,7 @@ export function gmailRoutes(ctx: Context) {
     }
   });
   router.delete('/', (req, res) => {
+    cancelPendingMail(ctx, req.user!.id);
     store.run('DELETE FROM connections WHERE user_id=? AND provider=?', req.user!.id, 'gmail');
     store.run('DELETE FROM oauth_states WHERE user_id=?', req.user!.id);
     res.json({ ok: true });

@@ -32,7 +32,13 @@ export function jobPlanner(ctx: Context): PlanJob {
     const key = ctx.store.setting('apiKey');
     if (!key) throw new HttpError(400, 'Bitte einen OpenAI API-Key konfigurieren.');
     const tools = connectedIntegrations(ctx, userId).flatMap((i) =>
-      kind === 'automation' ? i.tools.filter((t) => i.scriptTools?.includes(t.name)) : i.tools,
+      kind === 'automation'
+        ? i.tools.filter((t) => i.scriptTools?.includes(t.name))
+        : i.tools.filter(
+            (t) =>
+              !t.name.startsWith('gmail_prepare_') &&
+              !['gmail_cancel_action', 'gmail_action_status'].includes(t.name),
+          ),
     );
     const client = new OpenAI({ apiKey: ctx.vault.open(key), timeout: 90000, maxRetries: 0 });
     const response = await client.responses.parse({
