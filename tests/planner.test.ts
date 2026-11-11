@@ -50,6 +50,7 @@ afterEach(() => {
   rmSync(ctx.config.dataDir, { recursive: true, force: true });
 });
 it('generates structured plans with configured model, time context, script contract and only connected tools', async () => {
+  ctx.store.set('taskModel', 'planning-model');
   ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u', 'gmail', 'encrypted');
   parse.mockResolvedValue({
     status: 'completed',
@@ -57,7 +58,7 @@ it('generates structured plans with configured model, time context, script contr
   });
   await jobPlanner(ctx)('u', 'automation', 'Prüfe Gmail', 'Europe/Berlin', false);
   expect(parse.mock.calls[0][0]).toMatchObject({
-    model: 'configured-model',
+    model: 'planning-model',
     store: false,
     text: { format: { type: 'json_schema', name: 'scheduled_job_plan', strict: true } },
   });

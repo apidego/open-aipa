@@ -1,3 +1,4 @@
+import { modelFor } from './model-selection.js';
 import { notificationHistoryTool } from './notification-history.js';
 import { botInstructions } from './bot-profile.js';
 import OpenAI from 'openai';
@@ -51,7 +52,7 @@ export function summaryRunner(ctx: Context): Summarize {
     const client = new OpenAI({ apiKey: ctx.vault.open(key), timeout: 20000, maxRetries: 0 });
     const result = await client.responses.create(
       {
-        model: ctx.store.setting('model'),
+        model: modelFor(ctx, 'normal'),
         instructions: SUMMARY_INSTRUCTIONS,
         input: [{ role: 'user', content: input }],
         store: false,

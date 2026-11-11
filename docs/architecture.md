@@ -25,7 +25,7 @@ The installer generates an encryption key and setup token. The browser must pres
 
 Every mutating API request requires an exact `Origin` match with `APP_URL`. Gmail callbacks use one-time, expiring OAuth state bound to the initiating session and PKCE. API keys, Google client secrets and OAuth credentials use AES-256-GCM. Decrypted credentials never go to the browser.
 
-The instance-wide OpenAI key, model and system prompt are admin-managed. Conversations, Gmail connections, automations and results belong to individual users. Administrators can manage users, not query their conversations through the API; the server operator still controls the underlying database.
+The instance-wide OpenAI key, scenario models and system prompt are admin-managed. Conversations, Gmail connections, automations and results belong to individual users. Administrators can manage users, not query their conversations through the API; the server operator still controls the underlying database.
 
 ## Storage and migrations
 
@@ -39,7 +39,7 @@ Implement `Integration`, define narrowly scoped JSON-schema function tools and v
 
 ## Scheduling
 
-`jobs` separates `automation` (stored JavaScript) from `task` (AI at execution). Natural-language planning uses the configured OpenAI model with structured output, current time, timezone and only the user's connected capabilities. It never executes tools during planning. Unsupported destinations/actions and ambiguous schedules produce clarification. The resulting description, schedule and script are saved as an inactive draft; activation is an authenticated, origin-checked operation on the stored draft, not client-supplied code.
+`jobs` separates `automation` (stored JavaScript) from `task` (AI at execution). Natural-language planning uses the configured tasks/automations model with structured output, current time, timezone and only the user's connected capabilities. It never executes tools during planning. Unsupported destinations/actions and ambiguous schedules produce clarification. The resulting description, schedule and script are saved as an inactive draft; activation is an authenticated, origin-checked operation on the stored draft, not client-supplied code.
 
 Schedules support one-off ISO instants, minute intervals and five-field cron expressions with an IANA timezone. Cron parsing is strict and rejects simultaneous day-of-month/weekday restrictions. Recurrence is computed from the current time; missed recurring executions coalesce into one run. Overdue one-offs run once when the server is available. DST behavior follows cron-parser; non-existent local times move to the next valid occurrence. The UI shows upcoming times before activation. A resumed one-off must still be in the future.
 
@@ -58,3 +58,7 @@ Tasks use the regular tool-enabled agent with a structured result (`notify`, `ti
 Notifications belong to the owner and are delivered through an explicit channel boundary. `dashboard`, explicitly approved, personally linked `discord` DMs, and combined `dashboard_discord` delivery are supported. New drafts default to all available channels, snapshotted before approval; explicit single-channel requests override that default. Existing jobs keep their approved destinations. A model cannot select arbitrary recipients. Draft activation confirms the exact binding; a transactional outbox commits with the run result and sends separately through the active Discord transport. Every send rechecks the binding and integration generation. Pending/sent/failed states appear in task history; uncertain sends are never automatically replayed. Discord-only requests never fall back to dashboard notifications. See [scheduled jobs](scheduled-jobs.md#notification-channels) for delivery guarantees and [Discord](discord.md) for binding authorization. Other external actions require their own explicit approval design. Read markers are owner-scoped. The dashboard polls every 15 seconds and displays the latest 50 notifications; it is not background browser push.
 
 Run **one application process/replica** per database. Current bounds: 40 jobs including drafts per user, five planning requests per five minutes per user, minimum one-minute intervals, 16,000-character prompts and bounded scripts/results. The scheduler is not a distributed queue or a guaranteed real-time service. No monthly spending cap is implemented.
+
+## Model selection and reminder history
+
+See [scenario models](model-selection.md) for admin configuration, Decisions-based normal/complex routing and task-model isolation. Chat has an owner-scoped, read-only `notification_history` tool for delivered reminders; this does not expose external write capabilities or another user's history.

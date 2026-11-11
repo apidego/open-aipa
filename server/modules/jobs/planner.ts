@@ -1,3 +1,4 @@
+import { modelFor } from '../model-selection.js';
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
@@ -35,7 +36,7 @@ export function jobPlanner(ctx: Context): PlanJob {
     );
     const client = new OpenAI({ apiKey: ctx.vault.open(key), timeout: 90000, maxRetries: 0 });
     const response = await client.responses.parse({
-      model: ctx.store.setting('model'),
+      model: modelFor(ctx, 'tasks'),
       store: false,
       max_output_tokens: 6000,
       instructions: `Create a scheduled ${kind} from the user's request. Return German concise factual name/description, an execution prompt without scheduling instructions, and a schedule. Do NOT execute anything now.

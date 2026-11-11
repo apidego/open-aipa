@@ -287,6 +287,12 @@ it('requires explicit AI permission even when the generated script calls pa.ai',
   await activate(a, allowed);
   await instance.tick();
   expect(runAgent).toHaveBeenCalledTimes(1);
+  expect(runAgent).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.any(Array),
+    undefined,
+    expect.objectContaining({ scenario: 'tasks' }),
+  );
 });
 it('bounds CPU, heap, host calls, output and blocks Node/environment/network access', async () => {
   const a = await setup(),

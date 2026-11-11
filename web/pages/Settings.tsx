@@ -1,9 +1,12 @@
+import { ModelSelect } from '../components/ModelSelect';
 import { BotProfileSettings } from '../components/BotProfileSettings';
 import { useEffect, useState } from 'react';
 import { api, post, type User } from '../api';
 import { ErrorMessage, Field, Form, Loading, PageTitle } from '../components/ui';
 interface SettingsData {
   model: string;
+  complexModel: string;
+  taskModel: string;
   systemPrompt: string;
   hasApiKey: boolean;
 }
@@ -12,15 +15,32 @@ export function Settings({ user }: { user: User }) {
   const [error, setError] = useState('');
   const [tested, setTested] = useState('');
   const [testing, setTesting] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [modelError, setModelError] = useState('');
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const loadModels = async () => {
+    setModelsLoading(true);
+    setModelError('');
+    try {
+      setModels((await api<{ models: string[] }>('/settings/models')).models);
+    } catch (e) {
+      setModelError((e as Error).message);
+    } finally {
+      setModelsLoading(false);
+    }
+  };
   const refresh = () => api<SettingsData>('/settings').then(setData);
   useEffect(() => {
-    if (user.role === 'admin') refresh().catch((e) => setError(e.message));
+    if (user.role === 'admin') {
+      refresh().catch((e) => setError(e.message));
+      void loadModels();
+    }
   }, []);
   return (
     <>
       <PageTitle
         title="Einstellungen"
-        description="Bot-Profil, KI-Modell und Kontoeinstellungen verwalten."
+        description="Bot-Profil, KI-Modelle und Kontoeinstellungen verwalten."
       />
       <ErrorMessage error={error} />
       <div className="settings-grid">
@@ -39,10 +59,43 @@ export function Settings({ user }: { user: User }) {
                     body: JSON.stringify(Object.fromEntries(form)),
                   });
                   await refresh();
+                  await loadModels();
                   setTested('');
                 }}
               >
-                <Field label="OpenAI-Modell" name="model" defaultValue={data.model} />
+                <ModelSelect
+                  label="Normale Konversation"
+                  name="model"
+                  defaultValue={data.model}
+                  models={models}
+                />
+                <ModelSelect
+                  label="Komplexe Sachverhalte"
+                  name="complexModel"
+                  defaultValue={data.complexModel}
+                  models={models}
+                />
+                <ModelSelect
+                  label="Aufgaben und Automatisierungen"
+                  name="taskModel"
+                  defaultValue={data.taskModel}
+                  models={models}
+                />
+                <div className="model-catalog-status">
+                  <small role="status">
+                    {modelError ||
+                      (modelsLoading
+                        ? 'Modelle werden geladen …'
+                        : 'Modelle durchsuchen oder eine Modell-ID eingeben.')}
+                  </small>
+                  <button type="button" disabled={modelsLoading} onClick={() => void loadModels()}>
+                    Liste aktualisieren
+                  </button>
+                </div>
+                <p className="small">
+                  Normale und komplexe Anfragen werden automatisch zugeordnet. Aufgabenplanung und
+                  Ausführung nutzen das Aufgabenmodell.
+                </p>
                 <Field
                   label="OpenAI API-Key"
                   name="apiKey"
@@ -76,7 +129,7 @@ export function Settings({ user }: { user: User }) {
                     setTested('');
                     try {
                       await api('/settings/test', post({}));
-                      setTested('API-Key und Modell sind erreichbar.');
+                      setTested('API-Key und alle drei Modelle sind erreichbar.');
                     } catch (e) {
                       setError((e as Error).message);
                     } finally {

@@ -44,6 +44,7 @@ export async function runScript(ctx: Context, job: Job, runAgent: RunAgent, cpuM
           if (!job.allow_ai || ++aiCalls > 2) throw new Error('AI access unavailable');
           const prompt = z.string().min(1).max(16000).parse(args);
           result = await runAgent(job.user_id, [{ role: 'user', content: prompt }], undefined, {
+            scenario: 'tasks',
             signal: AbortSignal.timeout(Math.max(1, 120000 - (Date.now() - start))),
           });
         } else {

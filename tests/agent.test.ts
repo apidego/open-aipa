@@ -49,6 +49,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   ctx.store.db.close();
   rmSync(ctx.config.dataDir, { recursive: true, force: true });
 });
@@ -176,4 +177,84 @@ it('looks up delivered reminders with the authenticated owner, without external 
     .mockResolvedValueOnce(events([], 'Ich habe dich ans Wäschewaschen erinnert.'));
   await agentRunner(ctx)('u1', [{ role: 'user', content: 'Woran hast du mich erinnert?' }]);
   expect(JSON.stringify(create.mock.calls[1][0].input)).toContain('Wäsche waschen');
+});
+
+it.each([
+  ['normal', 0.95, 'normal-model'],
+  ['complex', 0.95, 'complex-model'],
+  ['normal', 0.3, 'complex-model'],
+])('routes conversation via Decisions: %s at %s uses %s', async (choice, confidence, expected) => {
+  ctx.store.set('model', 'normal-model');
+  ctx.store.set('complexModel', 'complex-model');
+  const decide = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          answers: [{ type: 'choice', name: 'conversation_complexity', choice, confidence }],
+        }),
+        { status: 200 },
+      ),
+    );
+  vi.stubGlobal('fetch', decide);
+  create.mockResolvedValueOnce(events([], 'Answer'));
+  await agentRunner(ctx)('u1', [
+    { role: 'user', content: 'Analysiere die Abhängigkeiten und Zielkonflikte.' },
+  ]);
+  expect(create.mock.calls[0][0].model).toBe(expected);
+  const body = JSON.parse(decide.mock.calls[0][1].body);
+  expect(decide.mock.calls[0][0]).toBe('https://api.openai.com/v1/decisions');
+  expect(body.model).toBe('gpt-6-luna');
+  expect(body.questions[0].choices.map((v: { value: string }) => v.value)).toEqual([
+    'normal',
+    'complex',
+  ]);
+});
+it.each([true, false])(
+  'uses task model for task execution/script AI and never routes: %s',
+  async (task) => {
+    ctx.store.set('model', 'normal-model');
+    ctx.store.set('complexModel', 'complex-model');
+    ctx.store.set('taskModel', 'task-model');
+    const decide = vi.fn();
+    vi.stubGlobal('fetch', decide);
+    create.mockResolvedValueOnce(events([], 'Result'));
+    await agentRunner(ctx)(
+      'u1',
+      [{ role: 'user', content: 'Task' }],
+      undefined,
+      task ? { task: true } : { scenario: 'tasks' },
+    );
+    expect(create.mock.calls[0][0].model).toBe('task-model');
+    expect(decide).not.toHaveBeenCalled();
+  },
+);
+it('falls back to the configured complex model when Decisions is unavailable, and respects cancellation', async () => {
+  ctx.store.set('complexModel', 'complex-model');
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('mock outage')));
+  create.mockResolvedValueOnce(events([], 'Answer'));
+  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Help' }]);
+  expect(create.mock.calls[0][0].model).toBe('complex-model');
+  const abort = new AbortController();
+  abort.abort();
+  await expect(
+    agentRunner(ctx)('u1', [{ role: 'user', content: 'Help' }], undefined, {
+      signal: abort.signal,
+    }),
+  ).rejects.toThrow();
+  expect(create).toHaveBeenCalledTimes(1);
+});
+it('skips Decisions when scenario models are identical and pins one model across tool rounds', async () => {
+  const decide = vi.fn();
+  vi.stubGlobal('fetch', decide);
+  const call = {
+    type: 'function_call',
+    call_id: 'history',
+    name: 'notification_history',
+    arguments: JSON.stringify({ after: null, before: null, query: null, offset: 0 }),
+  };
+  create.mockResolvedValueOnce(events([call])).mockResolvedValueOnce(events([], 'Answer'));
+  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Reminders?' }]);
+  expect(decide).not.toHaveBeenCalled();
+  expect(create.mock.calls.map((c) => c[0].model)).toEqual(['test-model', 'test-model']);
 });
