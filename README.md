@@ -79,3 +79,5 @@ npm run build
 Start with an issue, implement in a separate worktree, and submit a PR that closes the issue. After merge, remove the worktree and its local/remote branch. The same cleanup check runs at the start of each agent session; see [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
 
 [Architecture](docs/architecture.md) · [Security](SECURITY.md) · [Issues](https://github.com/apidego/open-aipa/issues) · [MIT license](LICENSE)
+
+Discord direct messages: see [Discord setup](docs/discord.md). Integrations require [activation](docs/integrations.md) before configuration or use.

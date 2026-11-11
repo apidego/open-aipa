@@ -17,6 +17,8 @@ import { jobRoutes } from './modules/jobs/routes.js';
 import { jobPlanner } from './modules/jobs/planner.js';
 import { notificationRoutes } from './modules/jobs/notifications.js';
 import type { PlanJob } from './modules/jobs/types.js';
+import { discordRoutes } from './integrations/discord.js';
+import { discordRuntime } from './integrations/discord-runtime.js';
 import { gmailRoutes } from './integrations/gmail.js';
 import { connectedIntegrations } from './integrations/registry.js';
 import { integrationRoutes, initializeIntegrations } from './integrations/routes.js';
@@ -75,6 +77,7 @@ export function createApp(config: Config, overrideAgent?: RunAgent, overridePlan
   app.use('/api', authenticated);
   app.use('/api/settings', settingsRoutes(ctx));
   const runAgent = overrideAgent || agentRunner(ctx);
+  const discord = discordRuntime(ctx, runAgent);
   app.use('/api/conversations', conversationRoutes(ctx, runAgent));
   const planJob = overridePlanner || jobPlanner(ctx);
   app.use('/api/automations', jobRoutes(ctx, 'automation', planJob));
@@ -82,6 +85,7 @@ export function createApp(config: Config, overrideAgent?: RunAgent, overridePlan
   app.use('/api/notifications', notificationRoutes(ctx));
   app.use('/api/integrations', integrationRoutes(ctx));
   app.use('/api/integrations/gmail', gmailRoutes(ctx));
+  app.use('/api/integrations/discord', discordRoutes(ctx, discord.status));
   app.get('/api/dashboard', (req, res) => {
     const count = (table: string) =>
       store.get<{ n: number }>(`SELECT COUNT(*) n FROM ${table} WHERE user_id=?`, req.user!.id)!.n;
@@ -142,5 +146,5 @@ export function createApp(config: Config, overrideAgent?: RunAgent, overridePlan
     res.status(500).json({ error: 'Ein interner Fehler ist aufgetreten.' });
   };
   app.use(errors);
-  return { app, ctx, tick: scheduler(ctx, runAgent) };
+  return { app, ctx, discord, tick: scheduler(ctx, runAgent) };
 }

@@ -59,6 +59,16 @@ export class Store {
         `);
       });
     }
+    if (!this.get('SELECT version FROM migrations WHERE version=3')) {
+      this.transaction(() => {
+        this.db.exec(`
+          CREATE TABLE discord_pairings (code_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, expires_at INTEGER NOT NULL);
+          CREATE TABLE discord_links (id TEXT PRIMARY KEY, user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, discord_user_id TEXT NOT NULL UNIQUE, channel_id TEXT NOT NULL, conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL);
+          CREATE TABLE discord_receipts (message_id TEXT PRIMARY KEY, created_at INTEGER NOT NULL);
+          INSERT INTO migrations(version) VALUES(3);
+        `);
+      });
+    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
     return this.db.prepare(sql).run(...params);
