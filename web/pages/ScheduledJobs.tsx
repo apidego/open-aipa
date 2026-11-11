@@ -405,14 +405,6 @@ export function ScheduledJobs({ kind }: { kind: 'automation' | 'task' }) {
                   KI-Aufrufe im Skript erlauben
                 </label>
               )}
-              <p className="job-hint">
-                {scriptMode
-                  ? 'Das Skript nutzt deine verbundenen Integrationen. Ohne diese Freigabe sind KI-Aufrufe bei der Ausführung gesperrt.'
-                  : 'Bei jeder Ausführung wird das konfigurierte KI-Modell verwendet.'}{' '}
-                Standardmäßig nutzen Benachrichtigungen alle verfügbaren Kanäle: Dashboard und, wenn
-                verknüpft, Discord. Für einen einzelnen Kanal schreibe zum Beispiel „nur Discord“
-                oder „nur Dashboard“ in den Auftrag. Der Entwurf zeigt die Kanäle vor der Freigabe.
-              </p>
               {question && (
                 <div className="notice" role="status">
                   {question}
