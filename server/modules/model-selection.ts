@@ -34,12 +34,10 @@ export async function conversationModel(
       body: JSON.stringify({
         model: 'gpt-6-luna',
         input: JSON.stringify(
-          messages
-            .slice(-6)
-            .map((m, i, recent) => ({
-              role: m.role,
-              content: clipText(m.content, i === recent.length - 1 ? 1500 : 240),
-            })),
+          messages.slice(-6).map((m, i, recent) => ({
+            role: m.role,
+            content: clipText(m.content, i === recent.length - 1 ? 1500 : 240),
+          })),
         ),
         questions: [
           {
