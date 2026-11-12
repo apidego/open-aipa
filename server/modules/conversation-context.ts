@@ -42,7 +42,7 @@ interface Memory {
   partial: number;
   retry_after: number;
 }
-export function summaryRunner(ctx: Context, model?: string): Summarize {
+export function summaryRunner(ctx: Context): Summarize {
   return async ({ previous, messages, signal }) => {
     const key = ctx.store.setting('apiKey');
     if (!key) throw new Error('Summary unavailable');
@@ -52,7 +52,7 @@ export function summaryRunner(ctx: Context, model?: string): Summarize {
     const client = new OpenAI({ apiKey: ctx.vault.open(key), timeout: 20000, maxRetries: 0 });
     const result = await client.responses.create(
       {
-        model: model || modelFor(ctx, 'normal'),
+        model: modelFor(ctx, 'normal'),
         instructions: SUMMARY_INSTRUCTIONS,
         input: [{ role: 'user', content: input }],
         store: false,

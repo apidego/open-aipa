@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Context } from '../../core/context.js';
-import type { RunAgent } from '../agent.js';
+import { AGENT_TIMEOUT_MS, type RunAgent } from '../agent.js';
 import { nextRun } from './schedule.js';
 import { runScript } from './scripts.js';
 import { deliver } from './notifications.js';
@@ -60,7 +60,7 @@ export function scheduler(ctx: Context, runAgent: RunAgent) {
                       job.user_id,
                       [{ role: 'user', content: job.prompt }],
                       undefined,
-                      { task: true, signal: AbortSignal.timeout(120000) },
+                      { task: true, signal: AbortSignal.timeout(AGENT_TIMEOUT_MS) },
                     ),
                   ),
                 );

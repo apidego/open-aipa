@@ -1,11 +1,3 @@
-import {
-  loadWork,
-  saveWork,
-  WORK_LIMITS,
-  compactWork,
-  receipt,
-  type AgentWork,
-} from '../server/modules/agent-work.js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,7 +5,7 @@ import { join } from 'node:path';
 import { Store } from '../server/core/db.js';
 import { Vault, token } from '../server/core/security.js';
 import type { Context } from '../server/core/context.js';
-import { agentRunner } from '../server/modules/agent.js';
+import { agentRunner, AGENT_MAX_ROUNDS, AGENT_TIMEOUT_MS } from '../server/modules/agent.js';
 import { gmail } from '../server/integrations/gmail.js';
 const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock('openai', () => ({
@@ -110,10 +102,10 @@ it('does not execute invented or unconnected tools and bounds repeated requests'
   create.mockImplementation(async () =>
     events([{ type: 'function_call', call_id: 'call1', name: 'gmail_search', arguments: '{}' }]),
   );
-  expect(await agentRunner(ctx)('u1', [{ role: 'user', content: 'Hi' }])).toContain(
-    'Mehrere Abfragen sind fehlgeschlagen',
+  await expect(agentRunner(ctx)('u1', [{ role: 'user', content: 'Hi' }])).rejects.toThrow(
+    '100 Modellrunden',
   );
-  expect(create).toHaveBeenCalledTimes(3);
+  expect(create).toHaveBeenCalledTimes(AGENT_MAX_ROUNDS);
   expect(execute).not.toHaveBeenCalled();
 });
 it('fails incomplete streams rather than persisting a partial response', async () => {
@@ -319,346 +311,63 @@ it.each([true, false])(
   },
 );
 
-function workConversation(id = 'chat') {
-  ctx.store.run('INSERT INTO conversations VALUES(?,?,?,?)', id, 'u1', 'Test', Date.now());
-  ctx.store.set('integration:gmail:enabled', 'true');
-  ctx.store.run('INSERT OR REPLACE INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'unused');
-  return { conversationId: id };
-}
-it('completes work beyond five tool rounds and checkpoints encrypted progress', async () => {
-  const options = workConversation();
-  let turns = 0;
-  const execute = vi
-    .spyOn(gmail, 'execute')
-    .mockImplementation(async (_ctx, _owner, name, args: any) => ({
-      id: args.id,
-      headers: [{ name: 'Subject', value: 'Synthetic mail' }],
-      text: 'content',
-    }));
-  create.mockImplementation(async (params: any) => {
-    if (!params.stream)
-      return {
-        status: 'completed',
-        output_text: 'Seven mails are being examined; continue with unread IDs.',
-      };
-    if (++turns <= 8)
-      return events([
-        {
+it.each([false, true])(
+  'finishes 30 rounds and 90 tool calls in one request (task=%s)',
+  async (task) => {
+    ctx.store.set('integration:gmail:enabled', 'true');
+    ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'unused');
+    const execute = vi.spyOn(gmail, 'execute').mockResolvedValue({ text: 'Synthetic mail' });
+    let rounds = 0;
+    const answer = task
+      ? '{"notify":true,"title":"Done","message":"Alle geprüft."}'
+      : 'Alle geprüft.';
+    create.mockImplementation(async () => {
+      if (++rounds > 30) return events([], answer);
+      return events(
+        Array.from({ length: 3 }, (_, index) => ({
           type: 'function_call',
-          call_id: 'c' + turns,
+          call_id: `call-${rounds}-${index}`,
           name: 'gmail_read',
-          arguments: JSON.stringify({ id: String(turns) }),
-        },
-      ]);
-    return events([], 'Alle acht Mails geprüft.');
-  });
-  expect(
-    await agentRunner(ctx)(
-      'u1',
-      [{ role: 'user', content: 'Prüfe acht Mails.' }],
-      undefined,
-      options,
-    ),
-  ).toBe('Alle acht Mails geprüft.');
-  expect(execute).toHaveBeenCalledTimes(8);
-  expect(turns).toBe(9);
-  const work = loadWork(ctx, 'u1', 'chat')!;
-  expect(work.status).toBe('complete');
-  expect(work.stage).toBeGreaterThan(0);
-  expect(
-    ctx.store.get<{ payload: string }>('SELECT payload FROM agent_work')!.payload,
-  ).not.toContain('Synthetic mail');
-});
-it('pauses at a bounded stage and resumes pending calls after restart without replaying completed calls', async () => {
-  const options = workConversation();
-  const execute = vi
-    .spyOn(gmail, 'execute')
-    .mockImplementation(async (_ctx, _id, _name, args: any) => ({ id: args.id, text: 'mail' }));
-  const calls = Array.from({ length: WORK_LIMITS.tools + 2 }, (_, i) => ({
-    type: 'function_call',
-    call_id: 'mail' + i,
-    name: 'gmail_read',
-    arguments: JSON.stringify({ id: String(i) }),
-  }));
-  create.mockResolvedValueOnce(events(calls));
-  const first = await agentRunner(ctx)(
-    'u1',
-    [{ role: 'user', content: 'Prüfe alle Mails.' }],
-    undefined,
-    options,
-  );
-  expect(first).toContain('Zwischenstand ist gespeichert');
-  expect(execute).toHaveBeenCalledTimes(WORK_LIMITS.tools);
-  expect(loadWork(ctx, 'u1', 'chat')!.pending).toHaveLength(2);
-  const requestId = execute.mock.calls[0][4]!.requestId;
-  // Re-open the store, as on process restart. All state comes from encrypted SQLite.
-  ctx.store.db.close();
-  ctx.store = new Store(ctx.config.dataDir);
-  create.mockResolvedValueOnce(events([], 'Fertig.'));
-  expect(
-    await agentRunner(ctx)('u1', [{ role: 'user', content: 'weiter' }], undefined, options),
-  ).toBe('Fertig.');
-  expect(execute).toHaveBeenCalledTimes(WORK_LIMITS.tools + 2);
-  expect(execute.mock.calls.at(-1)![4]).toEqual({ userRequest: 'Prüfe alle Mails.', requestId });
-  expect(new Set(execute.mock.calls.map((c) => (c[3] as any).id)).size).toBe(WORK_LIMITS.tools + 2);
-});
-it('preserves exact search cursors and processed IDs when summaries fail', async () => {
-  create.mockRejectedValue(new Error('summary unavailable'));
-  const search = receipt(
-    'gmail_search',
-    JSON.stringify({ query: 'newer_than:30d -in:trash', pageToken: null }),
-    { messages: [{ id: 'aa' }, { id: 'bb' }], nextPageToken: 'EXACT-CURSOR' },
-  );
-  const receipts = [
-    search,
-    ...Array.from({ length: 40 }, (_, i) =>
-      receipt('gmail_read', JSON.stringify({ id: String(i) }), {
-        id: String(i),
-        text: 'many lines',
+          arguments: JSON.stringify({ id: `mail-${rounds}-${index}` }),
+        })),
+      );
+    });
+    expect(
+      await agentRunner(ctx)('u1', [{ role: 'user', content: 'Prüfe alle Mails.' }], undefined, {
+        task,
       }),
-    ),
-  ];
-  const work: AgentWork = {
-    version: 1,
-    requestId: 'id',
-    userRequest: 'Check mail',
-    model: 'model',
-    status: 'working',
-    input: [{ role: 'user', content: 'Check mail' }],
-    receipts,
-    pending: [],
-    summary: '',
-    stage: 0,
-    rounds: 6,
-  };
-  await compactWork(ctx, work, 'Instructions', []);
-  const input = JSON.stringify(work.input);
-  expect(input).toContain('EXACT-CURSOR');
-  expect(input).toContain('alreadyReadMessageIds');
-  const savedContext = (work.input[1] as { content: string }).content;
-  expect(savedContext).toContain('\"nextUnreadMessageIds\":[\"aa\",\"bb\"]');
-  expect(create.mock.calls[0][0].model).toBe('model');
-  expect(input).toContain('newer_than:30d');
-});
-it('isolates checkpoints by owner and conversation and deletes them with the conversation', async () => {
-  const options = workConversation();
-  create.mockResolvedValueOnce(events([], 'Done'));
-  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Task' }], undefined, options);
-  expect(() => loadWork(ctx, 'u2', 'chat')).toThrow('Konversation');
-  await expect(
-    agentRunner(ctx)('u2', [{ role: 'user', content: 'weiter' }], undefined, options),
-  ).rejects.toThrow('Konversation');
-  ctx.store.run('INSERT INTO conversations VALUES(?,?,?,?)', 'other', 'u1', 'Other', Date.now());
-  expect(loadWork(ctx, 'u1', 'other')).toBeUndefined();
-  ctx.store.run('DELETE FROM conversations WHERE id=?', 'chat');
-  expect(ctx.store.all('SELECT * FROM agent_work')).toEqual([]);
-});
-it('does not replay an already finished workflow on a continuation request', async () => {
-  const options = workConversation();
-  create.mockResolvedValueOnce(events([], 'Done'));
-  await agentRunner(ctx)('u1', [{ role: 'user', content: 'Task' }], undefined, options);
-  const answer = await agentRunner(ctx)(
-    'u1',
-    [{ role: 'user', content: 'probier nochmal' }],
-    undefined,
-    options,
-  );
-  expect(answer).toContain('bereits abgeschlossen');
-  expect(create).toHaveBeenCalledTimes(1);
-});
-it('persists confirmed actions and returns truthful progress when generation fails', async () => {
-  const options = workConversation();
-  vi.spyOn(gmail, 'execute').mockResolvedValue({
-    id: 'action',
-    status: 'draft',
-    mail: { kind: 'trash', subject: 'Synthetic spam' },
-    reviewUrl: 'http://localhost:3000/mail?id=action',
-  });
-  create
-    .mockResolvedValueOnce(
-      events([
-        { type: 'function_call', call_id: 'prep', name: 'gmail_prepare_action', arguments: '{}' },
-      ]),
-    )
-    .mockRejectedValueOnce(new Error('provider secret'));
-  const result = await agentRunner(ctx)(
-    'u1',
-    [{ role: 'user', content: 'Räume Spam auf.' }],
-    undefined,
-    options,
-  );
-  expect(result).toContain('0 in den Papierkorb');
-  expect(result).toContain('1 zur Freigabe');
-  expect(result).not.toContain('provider secret');
-  expect(loadWork(ctx, 'u1', 'chat')!.status).toBe('paused');
-});
-it('preserves pending work on external cancellation without continuing tools', async () => {
-  const options = workConversation(),
-    abort = new AbortController();
-  const execute = vi.spyOn(gmail, 'execute').mockImplementation(async () => {
-    abort.abort(new Error('disconnected'));
-    return { text: 'done' };
-  });
-  create.mockResolvedValueOnce(
-    events(
-      [1, 2].map((i) => ({
-        type: 'function_call',
-        call_id: String(i),
-        name: 'gmail_read',
-        arguments: JSON.stringify({ id: String(i) }),
-      })),
-    ),
-  );
-  await expect(
-    agentRunner(ctx)('u1', [{ role: 'user', content: 'Check' }], undefined, {
-      ...options,
-      signal: abort.signal,
-    }),
-  ).rejects.toThrow('disconnected');
-  expect(execute).toHaveBeenCalledTimes(1);
-  expect(loadWork(ctx, 'u1', 'chat')!.pending).toHaveLength(1);
-});
-it('keeps a completed external write idempotent after a crash before its tool receipt is saved', async () => {
-  const options = workConversation();
-  ctx.config.googleClientId = 'test-client';
-  ctx.config.googleClientSecret = 'test-secret';
-  const { OAuth2Client } = await import('google-auth-library');
-  const { prepareMailAction } = await import('../server/modules/mail/actions.js');
-  ctx.store.run(
-    "UPDATE connections SET credentials=? WHERE user_id='u1' AND provider='gmail'",
-    ctx.vault.seal(
-      JSON.stringify({
-        refresh_token: 'test-refresh',
-        scope: 'https://www.googleapis.com/auth/gmail.modify',
-      }),
-    ),
-  );
-  vi.spyOn(OAuth2Client.prototype, 'getAccessToken').mockResolvedValue({ token: 'test' } as never);
-  const google = vi.spyOn(OAuth2Client.prototype, 'request').mockImplementation(
-    async (options: any) =>
-      ({
-        data:
-          options.method === 'POST' ? { id: 'sent-id' } : { emailAddress: 'owner@example.test' },
-      }) as never,
-  );
-  const args = {
-    kind: 'compose',
-    to: ['recipient@example.test'],
-    cc: [],
-    bcc: [],
-    subject: 'Synthetic',
-    body: 'Test',
-    sourceId: null,
-    sendAt: null,
-    timezone: 'Europe/Berlin',
-  };
-  const userRequest = 'Sende direkt an recipient@example.test';
-  await prepareMailAction(ctx, 'u1', args, { userRequest, requestId: 'crash-request' });
-  const call = {
-    type: 'function_call' as const,
-    call_id: 'write',
-    name: 'gmail_prepare_action',
-    arguments: JSON.stringify(args),
-  };
-  saveWork(ctx, 'u1', 'chat', {
-    version: 1,
-    requestId: 'crash-request',
-    userRequest,
-    model: 'test-model',
-    status: 'working',
-    input: [{ role: 'user', content: userRequest }, call],
-    pending: [call],
-    receipts: [],
-    summary: '',
-    stage: 0,
-    rounds: 1,
-  });
-  create.mockResolvedValueOnce(events([], 'Die Mail wurde gesendet.'));
-  await agentRunner(ctx)('u1', [{ role: 'user', content: 'weiter' }], undefined, options);
-  expect(google.mock.calls.filter(([o]) => (o as any).method === 'POST')).toHaveLength(1);
-  expect(ctx.store.all('SELECT id FROM mail_actions')).toHaveLength(1);
-  expect(loadWork(ctx, 'u1', 'chat')!.receipts[0].actionStatus).toBe('sent');
-});
-it('ends a time-bounded stage with a resumable pending call instead of discarding work', async () => {
-  const options = workConversation();
-  const now = Date.now();
-  const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
-  const execute = vi.spyOn(gmail, 'execute').mockImplementation(async () => {
-    clock.mockReturnValue(now + WORK_LIMITS.durationMs + 1);
-    return { id: '1', text: 'content' };
-  });
-  create.mockResolvedValueOnce(
-    events(
-      [1, 2].map((i) => ({
-        type: 'function_call',
-        call_id: String(i),
-        name: 'gmail_read',
-        arguments: JSON.stringify({ id: String(i) }),
-      })),
-    ),
-  );
-  const result = await agentRunner(ctx)(
-    'u1',
-    [{ role: 'user', content: 'Check' }],
-    undefined,
-    options,
-  );
-  expect(result).toContain('Zwischenstand ist gespeichert');
-  expect(execute).toHaveBeenCalledTimes(1);
-  expect(loadWork(ctx, 'u1', 'chat')!.pending).toHaveLength(1);
-});
-it('does not turn an unfinished scheduled task into a successful partial notification', async () => {
+    ).toBe(answer);
+    expect(create).toHaveBeenCalledTimes(31);
+    expect(execute).toHaveBeenCalledTimes(90);
+    expect(new Set(execute.mock.calls.map((call) => (call[3] as { id: string }).id)).size).toBe(90);
+    if (!task) expect(new Set(execute.mock.calls.map((call) => call[4]!.requestId)).size).toBe(1);
+  },
+);
+
+it('applies the ten-minute deadline and stops before another tool after timeout', async () => {
+  const deadline = new AbortController();
+  const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal);
   ctx.store.set('integration:gmail:enabled', 'true');
   ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'unused');
-  vi.spyOn(gmail, 'execute').mockResolvedValue({ id: '1', text: 'mail' });
+  const execute = vi.spyOn(gmail, 'execute').mockImplementation(async () => {
+    deadline.abort(new DOMException('Time limit', 'TimeoutError'));
+    return { text: 'Synthetic mail' };
+  });
   create.mockResolvedValueOnce(
     events(
-      Array.from({ length: WORK_LIMITS.tools + 1 }, (_, i) => ({
+      [1, 2].map((id) => ({
         type: 'function_call',
-        call_id: String(i),
+        call_id: String(id),
         name: 'gmail_read',
-        arguments: '{"id":"1"}',
+        arguments: JSON.stringify({ id: String(id) }),
       })),
     ),
   );
-  await expect(
-    agentRunner(ctx)('u1', [{ role: 'user', content: 'Check all' }], undefined, { task: true }),
-  ).rejects.toThrow('nicht vollständig');
-});
-it('does not carry direct-write approval across a Gmail binding/configuration change', async () => {
-  const options = workConversation();
-  const original = 'Sende direkt an recipient@example.test';
-  create.mockRejectedValueOnce(new Error('temporary outage'));
-  await agentRunner(ctx)('u1', [{ role: 'user', content: original }], undefined, options);
-  ctx.store.set('gmailGeneration', 'reconfigured');
-  const execute = vi
-    .spyOn(gmail, 'execute')
-    .mockResolvedValue({ id: 'draft', status: 'draft', mail: { subject: 'Draft' } });
-  create
-    .mockResolvedValueOnce(
-      events([
-        {
-          type: 'function_call',
-          call_id: 'new-action',
-          name: 'gmail_prepare_action',
-          arguments: '{}',
-        },
-      ]),
-    )
-    .mockResolvedValueOnce(events([], 'Bitte den Entwurf prüfen.'));
-  await agentRunner(ctx)('u1', [{ role: 'user', content: 'weiter' }], undefined, options);
-  expect(execute.mock.calls[0][4]!.userRequest).toBe('');
-});
-it('migrates persisted version-7 data without changing existing mail actions or conversations', () => {
-  workConversation();
-  ctx.store.db.exec('DROP TABLE agent_work; DELETE FROM migrations WHERE version=8');
-  const before = ctx.store.all('SELECT id,user_id FROM conversations');
-  const migrated = new Store(ctx.config.dataDir);
-  try {
-    expect(migrated.all('SELECT id,user_id FROM conversations')).toEqual(before);
-    expect(migrated.get('SELECT version FROM migrations WHERE version=8')).toBeTruthy();
-    expect(migrated.all('SELECT * FROM agent_work')).toEqual([]);
-  } finally {
-    migrated.db.close();
-  }
+  await expect(agentRunner(ctx)('u1', [{ role: 'user', content: 'Prüfe Mails.' }])).rejects.toThrow(
+    'Time limit',
+  );
+  expect(AGENT_TIMEOUT_MS).toBe(600000);
+  expect(timeout).toHaveBeenCalledWith(600000);
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(create.mock.calls[0][1].signal.aborted).toBe(true);
 });

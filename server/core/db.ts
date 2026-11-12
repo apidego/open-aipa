@@ -113,18 +113,6 @@ export class Store {
       `),
       );
     }
-    if (!this.get('SELECT version FROM migrations WHERE version=8')) {
-      this.transaction(() =>
-        this.db.exec(`
-        CREATE TABLE agent_work (
-          conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
-          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          payload TEXT NOT NULL, updated_at INTEGER NOT NULL
-        );
-        INSERT INTO migrations(version) VALUES(8);
-      `),
-      );
-    }
   }
   run(sql: string, ...params: SQLInputValue[]) {
     return this.db.prepare(sql).run(...params);

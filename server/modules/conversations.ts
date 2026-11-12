@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Context } from '../core/context.js';
 import { HttpError } from '../core/http.js';
 import { conversationContext, type PrepareContext } from './conversation-context.js';
-import type { RunAgent } from './agent.js';
+import { AGENT_TIMEOUT_MS, type RunAgent } from './agent.js';
 export function conversationRoutes(
   ctx: Context,
   runAgent: RunAgent,
@@ -76,16 +76,16 @@ export function conversationRoutes(
       if (!res.destroyed) res.write(': ping\n\n');
     }, 15000);
     try {
-      const signal = AbortSignal.timeout(120000);
+      const signal = AbortSignal.timeout(AGENT_TIMEOUT_MS);
       const context = await prepare(req.user!.id, id, content, signal);
       send('context', { notice: context.notice });
       const result = await runAgent(
         req.user!.id,
         context.messages,
         (text) => send('delta', { text }),
-        { signal, conversationId: id },
+        { signal },
       );
-      // Completed answers and saved partial-progress reports are stored atomically.
+      // A completed exchange is atomic; failed requests can safely be retried.
       store.transaction(() => {
         store.run(
           'INSERT INTO messages(conversation_id,role,content,created_at) VALUES(?,?,?,?)',
