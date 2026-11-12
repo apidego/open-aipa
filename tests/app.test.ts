@@ -179,6 +179,7 @@ describe('conversations and integrations', () => {
     expect(history.body.map((m: any) => m.content)).toEqual(['Plan my day', 'Hello world']);
     expect((await user.get('/api/conversations')).body).toEqual([]);
     expect(runAgent.mock.calls[0][1]).toEqual([{ role: 'user', content: 'Plan my day' }]);
+    expect((runAgent.mock.calls[0] as any)[3].conversationId).toBe(body.id);
   });
   it('does not persist failed exchanges and permits retry', async () => {
     const admin = await setup();

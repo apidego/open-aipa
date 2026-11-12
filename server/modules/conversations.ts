@@ -83,9 +83,9 @@ export function conversationRoutes(
         req.user!.id,
         context.messages,
         (text) => send('delta', { text }),
-        { signal },
+        { signal, conversationId: id },
       );
-      // A completed exchange is atomic; failed requests can safely be retried.
+      // Completed answers and saved partial-progress reports are stored atomically.
       store.transaction(() => {
         store.run(
           'INSERT INTO messages(conversation_id,role,content,created_at) VALUES(?,?,?,?)',

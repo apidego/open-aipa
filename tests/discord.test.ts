@@ -85,7 +85,10 @@ it('links one-time codes and keeps account identity, context and messages user-s
     'u1',
     [{ role: 'user', content: 'Erste Frage' }],
     undefined,
-    expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    expect.objectContaining({
+      signal: expect.any(AbortSignal),
+      conversationId: expect.any(String),
+    }),
   );
   expect(run.mock.calls[1][1]).toEqual([
     { role: 'user', content: 'Erste Frage' },

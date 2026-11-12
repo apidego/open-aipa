@@ -195,7 +195,10 @@ export function discordMessages(
       const context = await prepare(link.user_id, conversationId, content, signal);
       if (!linked()) return;
       if (context.notice) await send(message.channelId, context.notice, linked);
-      const result = await runAgent(link.user_id, context.messages, undefined, { signal });
+      const result = await runAgent(link.user_id, context.messages, undefined, {
+        signal,
+        conversationId,
+      });
       if (
         !linked() ||
         !store.get(

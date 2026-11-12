@@ -27,12 +27,19 @@ export const gmail: Integration = {
     {
       type: 'function',
       name: 'gmail_search',
-      description: 'Search the connected user’s Gmail. Returns up to 10 message IDs.',
+      description:
+        'Search the connected user’s Gmail, including spam/trash when matching the query. Returns up to 25 IDs and nextPageToken. Use each returned token with the SAME query until no token remains; never claim a whole date range was checked from one page. For cleanup exclude already trashed messages with -in:trash.',
       strict: true,
       parameters: {
         type: 'object',
-        properties: { query: { type: 'string', description: 'Gmail search query' } },
-        required: ['query'],
+        properties: {
+          query: { type: 'string', description: 'Gmail search query' },
+          pageToken: {
+            type: ['string', 'null'],
+            description: 'nextPageToken from the previous page, or null for the first page.',
+          },
+        },
+        required: ['query', 'pageToken'],
         additionalProperties: false,
       },
     },
@@ -69,11 +76,22 @@ export const gmail: Integration = {
     if (name === 'gmail_cancel_action') return cancelMailAction(ctx, userId, args);
     const client = await clientFor(ctx, userId);
     if (name === 'gmail_search') {
-      const { query } = z.object({ query: z.string().max(500) }).parse(args);
+      const { query, pageToken } = z
+        .object({
+          query: z.string().max(500),
+          pageToken: z.string().max(2000).nullable().optional(),
+        })
+        .strict()
+        .parse(args);
       return (
         await client.request({
           url: 'https://gmail.googleapis.com/gmail/v1/users/me/messages',
-          params: { q: query, maxResults: 10 },
+          params: {
+            q: query,
+            maxResults: 25,
+            includeSpamTrash: true,
+            ...(pageToken ? { pageToken } : {}),
+          },
           timeout: 20000,
         })
       ).data;
