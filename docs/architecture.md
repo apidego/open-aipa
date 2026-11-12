@@ -14,7 +14,7 @@ web/pages → same-origin API → server/modules → SQLite
 - `server/core`: environment validation, database, encryption, HTTP errors and shared context.
 - `server/modules/auth`: setup, sessions, passwords and admin-only user management.
 - `server/modules/conversations`: ownership checks, bounded conversation history, SSE and atomic completed exchanges.
-- `server/modules/agent`: Responses API streaming and a bounded tool loop (5 rounds, 4,096 output tokens per response). `RunAgent` is injected for offline tests.
+- `server/modules/agent`: Responses API streaming and a bounded tool loop (100 model rounds, ten minutes per invocation, 4,096 output tokens per response). `RunAgent` is injected for offline tests.
 - `server/integrations`: typed provider contract, activation lifecycle, explicit registry, Gmail adapter and Discord DM channel. Tools use the authenticated user's connection, never a model-provided user ID.
 - `server/modules/jobs`: natural-language planning, schedules, script sandbox, AI task execution, claims, history and notification delivery.
 - `web/pages`: route-specific screens; `web/components`: common UI elements.
@@ -50,6 +50,8 @@ The worker checks every 30 seconds and claims at most five due jobs per tick. Cl
 Generated function bodies execute inside QuickJS compiled to WebAssembly, not in Node's `vm` or `eval`. The guest receives JSON state/time and explicit host capabilities. No Node globals, shell, filesystem, environment, arbitrary HTTP, module loader or credentials are exposed. Standard JavaScript computation is allowed. The runtime is limited to 16 MiB guest heap, 256 KiB stack, approximately one second of synchronous computation, 120 seconds total, 20 capability calls, two explicit AI calls, and bounded input/output/state sizes. Host waits do not consume the CPU budget. The guest can block the event loop for up to its CPU budget; this remains a single-process, self-hosted service, not a hostile multi-tenant compute platform.
 
 `pa.tool(name,args)` delegates to the existing integration registry with the job owner's user ID; each call verifies the job and current connection. Integrations must explicitly list script-safe tools. Scripts expose only `gmail_search` and `gmail_read`, even when the account grants the broader `gmail.modify` scope. Mail action tools are also excluded from task execution and script AI. `pa.ai(prompt)` is server-blocked unless that automation was activated with AI access allowed. Otherwise script execution never calls the model. `pa.state` persists only after successful completion. See [scheduled jobs](scheduled-jobs.md) for the contract.
+
+Dashboard/Discord requests and scheduled AI tasks share the ten-minute agent timeout. Tool rounds continue automatically within a single request; there are no stage pauses, persistent work checkpoints or continuation commands. Existing context limits still apply.
 
 Tasks use the regular tool-enabled agent with a structured result (`notify`, `title`, `message`). An unmet condition can complete with `notify=false`, retaining a run record without creating a notification. Tool failures fail the task rather than treating unavailable data as a negative match. Email/tool content remains untrusted data.
 

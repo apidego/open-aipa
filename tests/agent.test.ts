@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Store } from '../server/core/db.js';
 import { Vault, token } from '../server/core/security.js';
 import type { Context } from '../server/core/context.js';
-import { agentRunner } from '../server/modules/agent.js';
+import { agentRunner, AGENT_MAX_ROUNDS, AGENT_TIMEOUT_MS } from '../server/modules/agent.js';
 import { gmail } from '../server/integrations/gmail.js';
 const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock('openai', () => ({
@@ -103,9 +103,9 @@ it('does not execute invented or unconnected tools and bounds repeated requests'
     events([{ type: 'function_call', call_id: 'call1', name: 'gmail_search', arguments: '{}' }]),
   );
   await expect(agentRunner(ctx)('u1', [{ role: 'user', content: 'Hi' }])).rejects.toThrow(
-    'Werkzeuglimit',
+    '100 Modellrunden',
   );
-  expect(create).toHaveBeenCalledTimes(5);
+  expect(create).toHaveBeenCalledTimes(AGENT_MAX_ROUNDS);
   expect(execute).not.toHaveBeenCalled();
 });
 it('fails incomplete streams rather than persisting a partial response', async () => {
@@ -310,3 +310,64 @@ it.each([true, false])(
     expect(execute).not.toHaveBeenCalled();
   },
 );
+
+it.each([false, true])(
+  'finishes 30 rounds and 90 tool calls in one request (task=%s)',
+  async (task) => {
+    ctx.store.set('integration:gmail:enabled', 'true');
+    ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'unused');
+    const execute = vi.spyOn(gmail, 'execute').mockResolvedValue({ text: 'Synthetic mail' });
+    let rounds = 0;
+    const answer = task
+      ? '{"notify":true,"title":"Done","message":"Alle geprüft."}'
+      : 'Alle geprüft.';
+    create.mockImplementation(async () => {
+      if (++rounds > 30) return events([], answer);
+      return events(
+        Array.from({ length: 3 }, (_, index) => ({
+          type: 'function_call',
+          call_id: `call-${rounds}-${index}`,
+          name: 'gmail_read',
+          arguments: JSON.stringify({ id: `mail-${rounds}-${index}` }),
+        })),
+      );
+    });
+    expect(
+      await agentRunner(ctx)('u1', [{ role: 'user', content: 'Prüfe alle Mails.' }], undefined, {
+        task,
+      }),
+    ).toBe(answer);
+    expect(create).toHaveBeenCalledTimes(31);
+    expect(execute).toHaveBeenCalledTimes(90);
+    expect(new Set(execute.mock.calls.map((call) => (call[3] as { id: string }).id)).size).toBe(90);
+    if (!task) expect(new Set(execute.mock.calls.map((call) => call[4]!.requestId)).size).toBe(1);
+  },
+);
+
+it('applies the ten-minute deadline and stops before another tool after timeout', async () => {
+  const deadline = new AbortController();
+  const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(deadline.signal);
+  ctx.store.set('integration:gmail:enabled', 'true');
+  ctx.store.run('INSERT INTO connections VALUES(?,?,?)', 'u1', 'gmail', 'unused');
+  const execute = vi.spyOn(gmail, 'execute').mockImplementation(async () => {
+    deadline.abort(new DOMException('Time limit', 'TimeoutError'));
+    return { text: 'Synthetic mail' };
+  });
+  create.mockResolvedValueOnce(
+    events(
+      [1, 2].map((id) => ({
+        type: 'function_call',
+        call_id: String(id),
+        name: 'gmail_read',
+        arguments: JSON.stringify({ id: String(id) }),
+      })),
+    ),
+  );
+  await expect(agentRunner(ctx)('u1', [{ role: 'user', content: 'Prüfe Mails.' }])).rejects.toThrow(
+    'Time limit',
+  );
+  expect(AGENT_TIMEOUT_MS).toBe(600000);
+  expect(timeout).toHaveBeenCalledWith(600000);
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(create.mock.calls[0][1].signal.aborted).toBe(true);
+});

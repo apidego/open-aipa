@@ -484,3 +484,30 @@ it('does not disclose Bcc headers when forwarding an original message', async ()
   expect(safe).not.toContain('second@example.test');
   expect(safe).toContain('Subject: Test\r\n\r\nBody\r\nBcc: this is body text');
 });
+it('pages Gmail search with the returned cursor and includes matching spam/trash', async () => {
+  const request = provider.getMockImplementation()!;
+  provider.mockImplementation(async (options: any) =>
+    options.url.endsWith('/messages')
+      ? {
+          data: options.params.pageToken
+            ? { messages: [{ id: 'bb' }] }
+            : { messages: [{ id: 'aa' }], nextPageToken: 'next-page' },
+        }
+      : request(options),
+  );
+  const first = (await gmail.execute(app.ctx, 'u1', 'gmail_search', {
+    query: 'newer_than:30d -in:trash',
+    pageToken: null,
+  })) as any;
+  const second = (await gmail.execute(app.ctx, 'u1', 'gmail_search', {
+    query: 'newer_than:30d -in:trash',
+    pageToken: first.nextPageToken,
+  })) as any;
+  expect(second.messages).toEqual([{ id: 'bb' }]);
+  expect((provider.mock.calls.at(-1)![0] as any).params).toEqual({
+    q: 'newer_than:30d -in:trash',
+    maxResults: 25,
+    includeSpamTrash: true,
+    pageToken: 'next-page',
+  });
+});

@@ -4,7 +4,7 @@ import type { Context } from '../core/context.js';
 import { HttpError } from '../core/http.js';
 import { digest } from '../core/security.js';
 import { conversationContext, type PrepareContext } from '../modules/conversation-context.js';
-import type { RunAgent } from '../modules/agent.js';
+import { AGENT_TIMEOUT_MS, type RunAgent } from '../modules/agent.js';
 import { integrationEnabled } from './state.js';
 export interface DirectMessage {
   id: string;
@@ -191,7 +191,7 @@ export function discordMessages(
       }
       lockedId = conversationId;
       locks.add(conversationId);
-      const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(120000)]);
+      const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(AGENT_TIMEOUT_MS)]);
       const context = await prepare(link.user_id, conversationId, content, signal);
       if (!linked()) return;
       if (context.notice) await send(message.channelId, context.notice, linked);

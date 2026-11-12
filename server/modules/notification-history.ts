@@ -69,14 +69,12 @@ export function notificationHistory(ctx: Context, userId: string, args: unknown)
     offset,
   );
   return {
-    items: rows
-      .slice(0, 10)
-      .map((r) => ({
-        ...r,
-        created_at: new Date(r.created_at).toISOString(),
-        channels: r.channels.split(','),
-        message: clipText(r.message, 240),
-      })),
+    items: rows.slice(0, 10).map((r) => ({
+      ...r,
+      created_at: new Date(r.created_at).toISOString(),
+      channels: r.channels.split(','),
+      message: clipText(r.message, 240),
+    })),
     has_more: rows.length > 10,
     next_offset: rows.length > 10 ? offset + 10 : null,
   };
